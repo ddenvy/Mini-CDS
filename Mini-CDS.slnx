@@ -1,2 +1,11 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MiniCds.Application/MiniCds.Application.csproj" />
+    <Project Path="src/MiniCds.Domain/MiniCds.Domain.csproj" />
+    <Project Path="src/MiniCds.Infrastructure/MiniCds.Infrastructure.csproj" />
+    <Project Path="src/MiniCds.Wpf/MiniCds.Wpf.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MiniCds.Tests/MiniCds.Tests.csproj" />
+  </Folder>
 </Solution>
