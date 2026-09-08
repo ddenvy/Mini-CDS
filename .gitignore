@@ -1,0 +1,76 @@
+# ---- .NET ----
+bin/
+obj/
+artifacts/
+out/
+build/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.csproj.user
+*.csproj.Shared
+*.csproj.filters
+*.csproj.metaproj
+*.dotm
+*.tmp
+*.tmp.proj
+*.bak
+*.cache
+*.pdb
+*.ilk
+*.log
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.wpf
+
+# ---- Visual Studio / Rider / VS Code ----
+.vs/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---- NuGet / Paket ----
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+paket-files/
+paket.lock.nuget
+
+# ---- SQLite (runtime DB, never commit) ----
+*.db
+*.db-shm
+*.db-wal
+*_efcore_shadow.db
+
+# ---- data/ папка из плана (runtime DB и т.п.) ----
+data/
+
+# ---- Python (tools/mqtt-publisher) ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+.venv/
+venv/
+env/
+.env
+requirements.txt.lock
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
