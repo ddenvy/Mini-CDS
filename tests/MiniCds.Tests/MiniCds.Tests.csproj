@@ -18,4 +18,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MiniCds.Infrastructure\MiniCds.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\MiniCds.Application\MiniCds.Application.csproj" />
+    <ProjectReference Include="..\..\src\MiniCds.Domain\MiniCds.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
