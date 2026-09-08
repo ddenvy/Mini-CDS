@@ -8,10 +8,10 @@ public class TestSignalGeneratorTests
     public void SingleGaussian_AmplitudeCorrectWithinTolerance()
     {
         // Given: perfect noiseless Gaussian
-        const double sampleRate = 100.0;       // 10 Hz = 100 точек/сек
-        const double duration = 10.0;           // 10 сек сигнала
+        const double sampleRate = 100.0;       // 10 Hz = 100 point/sec
+        const double duration = 10.0;           // 10 sec 
         const double amplitude = 1.0;
-        const double retention = 5.0;           // пик в центре сигнала
+        const double retention = 5.0;           // peak at the center of the signal
         const double sigma = 0.5;
 
         // When
