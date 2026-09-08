@@ -1,0 +1,20 @@
+// c:\Develop\Mini-CDS\src\MiniCds.Infrastructure\Persistence\CdsDbContext.cs
+using Microsoft.EntityFrameworkCore;
+using MiniCds.Domain.Entities;
+
+namespace MiniCds.Infrastructure.Persistence;
+
+/// <summary>
+/// SQLite-backed persistence context for the CDS audit and identity subsystem.
+/// </summary>
+public class CdsDbContext(DbContextOptions<CdsDbContext> options) : DbContext(options)
+{
+    public DbSet<User> Users => Set<User>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<ElectronicSignature> ElectronicSignatures => Set<ElectronicSignature>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(CdsDbContext).Assembly);
+    }
+}
