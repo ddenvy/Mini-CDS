@@ -1064,3 +1064,27 @@ hash-chain (21 CFR Part 11 §11.10(e)). **Далее:** MQTT end-to-end, README.
 
 **Итог:** 140/140 тестов зелёные. MQTT источник реализован end-to-end. Для работы нужен
 MQTT брокер (mosquitto или аналогичный). **Далее:** README с GIF, финальная полировка.
+
+---
+
+### 2026-09-09 — README (документация проекта)
+
+**План:** заполнить пустой README.md полным описанием проекта.
+
+**Сделано:**
+- **README.md** — полная документация на русском:
+  - Описание проекта (CDS, 21 CFR Part 11, ALCOA+).
+  - Возможности: acquisition, обработка сигнала, live chart, e-signature, audit trail,
+    append-only БД, отчёты, аутентификация, MQTT.
+  - Технологии: .NET 10, WPF, EF Core, SQLite, MQTTnet, QuestPDF, xUnit.
+  - Архитектура: Clean Architecture (Domain → Application → Infrastructure → Wpf).
+  - Поток данных acquisition.
+  - Структура проекта (дерево каталогов).
+  - Быстрый старт: требования, сборка, запуск, учётные данные (admin/demo123), тесты.
+  - Конфигурация: appsettings.json, режимы инструмента (Simulator/Mqtt).
+  - MQTT интеграция: топик, форматы сообщений, Python publisher.
+  - Соответствие 21 CFR Part 11 (таблица §11.10/§11.50/§11.200) и ALCOA+.
+  - Лицензия (QuestPDF Community).
+
+**Итог:** Проект задокументирован. Все запланированные этапы (UI, signature, peaks, audit,
+MQTT, документация) завершены. **Далее:** финальная проверка и, при необходимости, GIF-демо.
