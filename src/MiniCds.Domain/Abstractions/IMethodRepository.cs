@@ -9,4 +9,5 @@ namespace MiniCds.Domain.Abstractions;
 public interface IMethodRepository
 {
     Task<Method?> FindByIdAsync(long id, CancellationToken ct = default);
+    Task<IReadOnlyList<Method>> GetAllAsync(CancellationToken ct = default);
 }

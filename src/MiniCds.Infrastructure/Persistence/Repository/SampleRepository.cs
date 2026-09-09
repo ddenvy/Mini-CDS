@@ -23,6 +23,13 @@ public sealed class SampleRepository(CdsDbContext dbContext) : ISampleRepository
             .OrderByDescending(s => s.CreatedAtUtc)
             .ToListAsync(ct);
 
+    public async Task<long> AddAsync(Sample sample, CancellationToken ct = default)
+    {
+        dbContext.Samples.Add(sample);
+        await dbContext.SaveChangesAsync(ct);
+        return sample.Id;
+    }
+
     public async Task UpdateStatusAsync(long sampleId, SampleStatus newStatus, CancellationToken ct = default)
     {
         var sample = await dbContext.Samples.FindAsync([sampleId], ct)

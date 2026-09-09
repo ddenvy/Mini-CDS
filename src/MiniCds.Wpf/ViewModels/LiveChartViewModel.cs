@@ -47,6 +47,7 @@ public sealed class LiveChartViewModel : INotifyPropertyChanged
         StopAcquisitionCommand = new AsyncRelayCommand(StopAcquisitionAsync, CanStopAcquisition);
         LoadSamplesCommand = new AsyncRelayCommand(LoadSamplesAsync, () => true);
         VoidSampleCommand = new AsyncRelayCommand(VoidSampleAsync, CanVoidSample);
+        CreateSampleCommand = new AsyncRelayCommand(CreateSampleAsync, () => true);
 
         _acquisitionService.FrameProcessed += OnFrameProcessed;
         _acquisitionService.PeaksDetected += OnPeaksDetected;
@@ -108,6 +109,7 @@ public sealed class LiveChartViewModel : INotifyPropertyChanged
     public ICommand StopAcquisitionCommand { get; }
     public ICommand LoadSamplesCommand { get; }
     public ICommand VoidSampleCommand { get; }
+    public ICommand CreateSampleCommand { get; }
 
     private bool CanStartAcquisition() => !IsAcquiring && SelectedSample is not null;
 
@@ -184,6 +186,41 @@ public sealed class LiveChartViewModel : INotifyPropertyChanged
         foreach (var sample in samples)
         {
             AvailableSamples.Add(sample);
+        }
+    }
+
+    private async Task CreateSampleAsync()
+    {
+        try
+        {
+            var methods = await _methodRepository.GetAllAsync();
+            if (methods.Count == 0)
+            {
+                MessageBox.Show("No method available to create a sample.", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var name = $"Sample_{DateTime.Now:yyyyMMddHHmmss}";
+            var sample = new Sample
+            {
+                Name = name,
+                MethodId = methods[0].Id,
+                Status = SampleStatus.Queued,
+                CreatedAtUtc = DateTime.UtcNow,
+                CreatedByUserId = _actorUserId
+            };
+
+            await _sampleRepository.AddAsync(sample);
+            await LoadSamplesAsync();
+
+            // Select the newly created sample
+            SelectedSample = AvailableSamples.FirstOrDefault(s => s.Name == name);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to create sample: {ex.Message}", "Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
