@@ -37,7 +37,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 3 | DSP pipeline: MA → SG → ALS → PeakDetector → SignalProcessor | ✅ Закрыт (26/26 tests) |
 | 4 | Persistence: CdsDbContext, EF configurations, SQLite migration, Persistence tests | ✅ Закрыт (3/3 tests) |
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
-| 6 | AuditService, SignatureService (mock), PasswordHasher | 🟡 В работе: PasswordHasher ✅ 6/6 |
+| 6 | AuditService, SignatureService (mock), PasswordHasher | 🟡 В работе: PasswordHasher ✅, AuditService ✅ |
 | 7 | WPF host + DI, LoginWindow, AuditView | ⚪ Запланирован |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
@@ -359,6 +359,41 @@ SQLite-триггеры (после них tamper-тест через сырой
 
 ---
 
+### 2026-09-09 — Milestone 6, часть 2: AuditService (фасад Application-слоя)
+
+**План:** `AuditService` поверх `IAuditTrail` + 7 юнит-тестов с NSubstitute-моком
+(NSubstitute 6.2.0 добавлен в тестовый проект). Тестировать НЕ запись в БД (покрыто
+AuditTrailTests), а **что именно** сервис запрашивает у журнала.
+
+**Сделано:**
+- `src/MiniCds.Application/Audit/AuditService.cs` — три метода: `RecordAsync` (валидация +
+  форвардинг), `VerifyIntegrityAsync` (кнопка «Проверить журнал» в будущем AuditView),
+  `QueryLogAsync` (сетка журнала для UI).
+- Валидация: пустой/whitespace `entityType` и `actorUserId <= 0` → `ArgumentException`
+  **до** обращения к хранилищу.
+- `tests/MiniCds.Tests/Audit/AuditServiceTests.cs` — 7 тестов: форвардинг всех полей,
+  rejection-кейсы с `DidNotReceiveWithAnyArgs()`, оба исхода `VerifyIntegrityAsync`,
+  форвардинг фильтров `QueryLogAsync`.
+
+**Проблемы / ловушки:**
+1. **Async-моки требуют явной настройки возврата.** Без `.Returns(1)` NSubstitute вернул бы
+   default, и `await Task<long>` дал бы 0 — тест поймал бы молчаливую подмену. Правило:
+   для async-методов всегда настраивать возвращаемое значение.
+2. **`ThrowAsync` для `Func<Task>`** — синхронный `Throw()` не компилируется с async-делегатами;
+   FluentAssertions требует асинхронный вариант.
+3. **Отложенное проектное решение — `FailedLogin`.** Кого писать в `ActorUserId` при неудачном
+   входе? FK Restrict не даст записать несуществующего id. Выбран вариант «system»-аккаунт
+   (сидинг), но он требует DI-хоста — вернёмся на Milestone 7. Неудачные входы пока не
+   аудируются — осознанный временный пробел, зафиксирован в техдолге.
+4. **`CancellationToken` в `RecordAsync` не доходит до `AppendAsync`** — в контракте
+   `IAuditTrail.AppendAsync` токена нет (решение Milestone 2). Расширять контракт тайком
+   не стали; явный долг.
+
+**Итог:** 7/7 AuditServiceTests (фильтр). Полный прогон — перед коммитом. Далее —
+`SignatureService` (перекрёстные id подписи↔аудита в одной транзакции) или WPF-хост.
+
+---
+
 ## Архитектурные решения, зафиксированные навсегда
 
 | Решение | Обоснование |
@@ -383,3 +418,5 @@ SQLite-триггеры (после них tamper-тест через сырой
 - Enum-члены нельзя переименовывать после продакшена — строковое хранение сломает чтение.
   В будущем: `[EnumMember]`-атрибуты для канонических имён.
 - FluentAssertions под коммерческой лицензией — при переходе в прод заменить на Shouldly.
+- `FailedLogin` не аудируется до появления system-аккаунта (сидинг, Milestone 7).
+- `IAuditTrail.AppendAsync` без `CancellationToken` — расширить контракт при необходимости.
