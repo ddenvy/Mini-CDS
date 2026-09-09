@@ -27,6 +27,10 @@ build/
 *.tmp_proj
 *_wpftmp.csproj
 
+# ---- App data & artifacts ----
+data/
+Reports/
+
 
 # ---- Visual Studio / Rider / VS Code ----
 .vs/
