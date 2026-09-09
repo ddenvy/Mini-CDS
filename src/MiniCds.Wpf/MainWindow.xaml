@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:MiniCds.Wpf"
         xmlns:views="clr-namespace:MiniCds.Wpf.Views"
         mc:Ignorable="d"
-        Title="Mini-CDS" Height="700" Width="1100"
+        Title="Mini-CDS" Height="850" Width="1100"
         WindowStartupLocation="CenterScreen">
     <DockPanel>
         <Menu DockPanel.Dock="Top">

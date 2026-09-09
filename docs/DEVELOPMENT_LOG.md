@@ -985,3 +985,28 @@ MQTT end-to-end, README.
 
 **Итог:** 140/140 тестов зелёные, 0 предупреждений. SignatureDialog реализован и интегрирован с void sample.
 **Далее:** PeaksView, AuditView, MQTT end-to-end, README.
+
+---
+
+### 2026-09-09 — PeaksView (DataGrid с детектированными пиками)
+
+**План:** добавить таблицу пиков под графиком хроматограммы.
+
+**Сделано:**
+- **PeaksView** (`src/MiniCds.Wpf/Views/PeaksView.xaml` + `.xaml.cs`):
+  - UserControl с `DataGrid`, привязанным к `DetectedPeaks`.
+  - Колонки: `#` (номер пика через `AlternationIndex`), `RT (s)`, `Height`, `Area`,
+    `FWHM (s)`, `Plates`, `Tailing`.
+  - Привязка к вложенным свойствам `Metrics.RetentionTime`, `Metrics.Height` и т.д.
+  - `StringFormat` для чисел (F3 для времени, F2 для высоты/площади, F0 для plates).
+  - `AlternationCount="9999"` для нумерации строк.
+  - Зебра-строки (`AlternatingRowBackground`), только чтение.
+- **LiveChartView.xaml:**
+  - Добавлена 4-я строка в `Grid` (`Height="*"`).
+  - `xmlns:views` для ссылки на `PeaksView`.
+  - `GroupBox "Detected Peaks"` с `<views:PeaksView/>` в строке 3.
+  - `d:DesignHeight` увеличен до 700.
+- **MainWindow.xaml** — высота окна увеличена с 700 до 850 для помещения таблицы пиков.
+
+**Итог:** 140/140 тестов зелёные. Теперь в LiveChart под графиком отображается таблица
+детектированных пиков с их метриками. **Далее:** AuditView, MQTT end-to-end, README.
