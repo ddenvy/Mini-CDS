@@ -20,7 +20,6 @@ namespace MiniCds.Infrastructure.Migrations
             modelBuilder.Entity("MiniCds.Domain.Entities.AuditEntry", b =>
                 {
                     b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Action")

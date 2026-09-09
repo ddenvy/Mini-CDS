@@ -11,7 +11,7 @@ using MiniCds.Infrastructure.Persistence;
 namespace MiniCds.Infrastructure.Migrations
 {
     [DbContext(typeof(CdsDbContext))]
-    [Migration("20260908150751_InitialCreate")]
+    [Migration("20260909015429_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -23,7 +23,6 @@ namespace MiniCds.Infrastructure.Migrations
             modelBuilder.Entity("MiniCds.Domain.Entities.AuditEntry", b =>
                 {
                     b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Action")

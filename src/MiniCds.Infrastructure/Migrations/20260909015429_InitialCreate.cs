@@ -34,8 +34,7 @@ namespace MiniCds.Infrastructure.Migrations
                 name: "audit_entries",
                 columns: table => new
                 {
-                    Id = table.Column<long>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
+                    Id = table.Column<long>(type: "INTEGER", nullable: false),
                     TimestampUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
                     ActorUserId = table.Column<long>(type: "INTEGER", nullable: false),
                     Action = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),

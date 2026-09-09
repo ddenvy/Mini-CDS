@@ -12,6 +12,10 @@ public class AuditEntryConfiguration : IEntityTypeConfiguration<AuditEntry>
         builder.ToTable("audit_entries");
         builder.HasKey(a => a.Id);
 
+        // Id is assigned by AuditTrail (max+1 inside a transaction): it is part of the
+        // hashed payload, so it must be known BEFORE the row is inserted.
+        builder.Property(a => a.Id).ValueGeneratedNever();
+
         builder.Property(a => a.Action).HasConversion<string>().HasMaxLength(32);
         builder.Property(a => a.EntityType).HasMaxLength(64).IsRequired();
         builder.Property(a => a.Reason).HasMaxLength(1024);

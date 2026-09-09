@@ -36,7 +36,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 2 | Domain entities & enums (User, AuditEntry, ElectronicSignature) | ✅ Закрыт |
 | 3 | DSP pipeline: MA → SG → ALS → PeakDetector → SignalProcessor | ✅ Закрыт (26/26 tests) |
 | 4 | Persistence: CdsDbContext, EF configurations, SQLite migration, Persistence tests | ✅ Закрыт (3/3 tests) |
-| 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | 🟡 В работе: HashChain ✅ 8/8 |
+| 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | 🟡 В работе: HashChain ✅, AuditTrail ✅ 7/7 |
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ⚪ Запланирован |
 | 7 | WPF host + DI, LoginWindow, AuditView | ⚪ Запланирован |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
@@ -259,6 +259,42 @@ Milestone 4 закрыт.
 
 **Итог:** 8/8 зелёные. Следующий шаг — `AuditTrail : IAuditTrail` в Infrastructure
 с детерминированным `Id` в транзакции (`BEGIN IMMEDIATE`, `max(Id)+1`).
+
+---
+
+### 2026-09-09 — Milestone 5, часть 2: AuditTrail (append-only журнал с цепочкой)
+
+**План:** реализовать `AuditTrail : IAuditTrail` в Infrastructure (AppendAsync с детерминированным
+Id, VerifyChainAsync, QueryAsync с JOIN на users) + 4 интеграционных теста на in-memory SQLite.
+
+**Сделано:**
+- `src/MiniCds.Infrastructure/Persistence/AuditTrail.cs`.
+- `AuditEntryConfiguration`: `Id → ValueGeneratedNever()` — id присваивается кодом ДО вставки,
+  т.к. входит в хэшируемый payload. EF при autoincrement проигнорировал бы явный Id.
+- `AppendAsync`: транзакция → `max(Id)+1` → JSON-сериализация old/new ДО хэширования (в базу
+  ложится тот же текст, что в payload) → `TimestampUtc.ToString("O", InvariantCulture)` —
+  канонический формат, идентичный на append и verify.
+- `VerifyChainAsync`: проход `ORDER BY Id`, сверка `PrevHash` + пересчёт `Hash` каждой записи.
+- `QueryAsync`: явный `join` на `users` (навигаций нет по решению Milestone 2) — один SQL,
+  без N+1; фильтры entityType/entityId/action/диапазон дат.
+- Тесты: genesis-chain, 3 последовательных id, **tamper-тест** (сырой `UPDATE Hash` в обход EF
+  → VerifyChain возвращает false), JOIN+фильтры.
+
+**Проблемы / ловушки:**
+1. **PendingModelChangesWarning** — все 4 теста упали в конструкторе: `ValueGeneratedNever`
+   изменил модель, а `ModelSnapshot.cs` остался старым; EF 10 валит `Migrate()` на расхождении.
+   Соблазн подавить warning через `ConfigureWarnings` отвергнут — snapshot обязан соответствовать
+   модели. Лечение: `migrations remove` + повторная генерация `InitialCreate` (schema для SQLite
+   не меняется — аннотация чисто design-time).
+2. **Гонка Id** — SQLite однопоточен на запись, но два `AppendAsync` из разных async-контекстов
+   WPF теоретически пересекаются; транзакция вокруг read-max + insert закрывает вопрос.
+3. **JSON до хэша vs после** — если сериализовать в момент записи отдельно от хэширования,
+   свойства могут встать в другом порядке → разные строки → verify лжёт. Одно сериализация-
+   вызов, результат используется оба раза.
+
+**Итог:** 7/7 Persistence (3 старых + 4 новых). Следующий шаг — AppendOnlyInterceptor +
+SQLite-триггеры (после них tamper-тест через сырой UPDATE должен падать на уровне БД —
+тест адаптируется под ожидание исключения).
 
 ---
 
