@@ -52,8 +52,9 @@ paket.lock.nuget
 *.db-wal
 *_efcore_shadow.db
 
-# ---- data/ папка из плана (runtime DB и т.п.) ----
+# ---- data/ и logs/ папки из плана (runtime DB и логи) ----
 data/
+logs/
 
 # ---- Python (tools/mqtt-publisher) ----
 __pycache__/

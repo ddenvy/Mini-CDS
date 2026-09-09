@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuditTrail, AuditTrail>();
         services.AddScoped<ISignatureService, SignatureService>();
         services.AddScoped<AuditService>();
+        services.AddScoped<DbSeeder>();
 
         return services;
     }

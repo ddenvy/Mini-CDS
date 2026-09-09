@@ -38,7 +38,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 4 | Persistence: CdsDbContext, EF configurations, SQLite migration, Persistence tests | ✅ Закрыт (3/3 tests) |
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
-| 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | 🟡 В работе: хост+DI ✅, сидинг ⬜ |
+| 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | 🟡 В работе: хост+DI+сидинг+логи ✅, LoginWindow ⬜ |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
 
@@ -463,6 +463,41 @@ system-аккаунта → разблокирует FailedLogin-аудит).
 
 ---
 
+### 2026-09-09 — Milestone 7, часть 2: DbSeeder + Serilog structured logging
+
+**План:** идемпотентный сидер (system-аккаунт + демо-пользователи), затем наблюдаемость
+приложения: structured логи вместо «Console.WriteLine в никуда» GUI-процесса.
+
+**Сделано:**
+- `DbSeeder` (Infrastructure): `system` — без credentials (`PasswordHash=""`) и `IsActive=false`
+  → интерактивный вход невозможен конструктивно; идемпотентность по username (OrdinalIgnoreCase),
+  существующие пользователи не трогаются никогда.
+- Демо-пароли: из `Demo__Password` (env), иначе — крипто-генерация из алфавита без неоднозначных
+  символов (l/I/O/0) и **показ один раз в MessageBox** — в лог credentials не пишутся (правило).
+- Сидинг не пишет аудит: автор системных событий создаётся им самим — самоссылка невозможна.
+- Serilog: `UseSerilog(ReadFrom.Configuration)` + File sink с `CompactJsonFormatter`,
+  суточная ротация + лимит 10 МБ, EF Core → Warning (иначе каждый SQL замусоривает файл).
+- `DispatcherUnhandledException` → `Log.Fatal` + MessageBox + `Handled=true`; `CloseAndFlush` в OnExit.
+- Тесты: 6 DbSeeder (включая сквозной «system не может подписать» через SignatureService и
+  «оператор подписывает, цепочка валидна»). **Полный прогон: 76/76** (14 файлов).
+
+**Проблемы / ловушки:**
+1. **GUI-subsystem ≠ консольное приложение.** `dotnet run` для WinExe не блокирует терминал, а
+   `Console.WriteLine` уходит в отсоединённый stdout — пароли первого сидинга были напечатаны
+   «в никуда» и безвозвратны (idempotent-сидер их не пересоздаст). Лечится: логирование (сделано)
+   + сброс `data/cds.db*` + `Demo__Password`. Это же объяснило «мгновенный возврат» запуска.
+2. **Diff-инструмент и якорение `old_str`.** Паттерн `data/` совпал с первым вхождением — внутри
+   строки комментария `# ---- data/ папка...`, а не с правилом игнора. Итог: комментарий разрезан,
+   `logs/` стал частью сломанного паттерна и **не игнорировался**. Уроки: (а) `old_str` обязан быть
+   уникален с окружением; (б) принятый diff перечитывать глазами — именно eyeball выявил поломку.
+3. **Третий случай «арифметика по памяти ≠ факт»:** 42→46, 70→76. Правило подтверждено эмпирически:
+   статус в дневник — только из вывода команды.
+
+**Итог:** 76/76, лог пишется (`logs/cds-<date>.log`, проверено содержимое: `MiniCds host started`,
+`Seeding complete: CreatedCount=3, SystemUserId=1`). Осталось в Milestone 7: AuthService + LoginWindow.
+
+---
+
 ## Архитектурные решения, зафиксированные навсегда
 
 | Решение | Обоснование |
@@ -492,4 +527,6 @@ system-аккаунта → разблокирует FailedLogin-аудит).
 - В WPF-слое базовый класс писать `System.Windows.Application` (конфликт с namespace слоя).
 - Неудачные попытки подписи (wrong password) не аудируются — до system-аккаунта (Milestone 7).
 - Путь БД относительный (от CWD процесса) — сделать абсолютный от `AppContext.BaseDirectory`.
-- Нет `DispatcherUnhandledException`-логера: `async void` в App глотает исключения старта.
+- ~~Нет `DispatcherUnhandledException`-логера~~ — закрыто (Serilog + handler + CloseAndFlush).
+- Логи/БД используют относительные пути от CWD процесса (при IDE-запуске это корень репо).
+  Для продакшена — абсолютные пути от `AppContext.BaseDirectory`.

@@ -1,10 +1,12 @@
 ﻿using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MiniCds.Infrastructure.Persistence;
+using Serilog;
 
 namespace MiniCds.Wpf;
 
@@ -23,6 +25,7 @@ public partial class App : System.Windows.Application
             .ConfigureAppConfiguration(config => config
                 .SetBasePath(AppContext.BaseDirectory)
                 .AddJsonFile("appsettings.json", optional: false))
+            .UseSerilog((context, config) => config.ReadFrom.Configuration(context.Configuration))
             .ConfigureServices((context, services) =>
             {
                 var connectionString = context.Configuration.GetConnectionString("CdsDb")
@@ -31,11 +34,40 @@ public partial class App : System.Windows.Application
                 services.AddTransient<MainWindow>();
             })
             .Build();
+
+        // Last-resort handler: UI-thread crashes become logged and visible.
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+    }
+
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        Log.Fatal(e.Exception, "Unhandled UI exception");
+        MessageBox.Show(e.Exception.Message, "Unexpected error",
+            MessageBoxButton.OK, MessageBoxImage.Error);
+        e.Handled = true;
     }
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        // async void swallows exceptions: surface them, otherwise the app exits silently.
+        try
+        {
+            await StartupCoreAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Startup failed");
+            MessageBox.Show(ex.ToString(), "Startup failed",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown();
+        }
+        base.OnStartup(e);
+    }
+
+    private async Task StartupCoreAsync()
+    {
         await _host.StartAsync();
+        Log.Information("MiniCds host started");
 
         // SQLite resolves the relative "data/cds.db" from appsettings against the process
         // working directory, so the folder must be created there too. The data/ folder is git-ignored.
@@ -45,6 +77,28 @@ public partial class App : System.Windows.Application
         {
             var db = scope.ServiceProvider.GetRequiredService<CdsDbContext>();
             await db.Database.MigrateAsync();
+
+            var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
+            var demoPassword = scope.ServiceProvider
+                .GetRequiredService<IConfiguration>()
+                ["Demo:Password"];
+
+            var seed = await seeder.SeedAsync(demoPassword);
+            Log.Information("Seeding complete: created {CreatedCount} user(s), system id={SystemUserId}",
+                seed.Created.Count, seed.SystemUserId);
+
+            var generated = seed.Created.Where(u => u.Password is not null).ToList();
+            if (generated.Count > 0)
+            {
+                // Credentials must never reach the log file: show them once in a dialog.
+                var credentials = string.Join(Environment.NewLine,
+                    generated.Select(u => $"{u.Username}: {u.Password}"));
+                MessageBox.Show(
+                    $"Created demo users with generated passwords:{Environment.NewLine}{Environment.NewLine}" +
+                    $"{credentials}{Environment.NewLine}{Environment.NewLine}" +
+                    "Set Demo__Password to choose your own.",
+                    "Database seeded", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         // One DI scope per window: DbContext lives as long as the window does.
@@ -54,13 +108,14 @@ public partial class App : System.Windows.Application
         mainWindow.Closed += (_, _) => windowScope.Dispose();
         mainWindow.Show();
 
-        base.OnStartup(e);
     }
 
     protected override async void OnExit(ExitEventArgs e)
     {
+        Log.Information("MiniCds host stopping");
         await _host.StopAsync();
         _host.Dispose();
+        Log.CloseAndFlush();
         base.OnExit(e);
     }
 }
