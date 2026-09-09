@@ -11,6 +11,11 @@ public class ElectronicSignatureConfiguration : IEntityTypeConfiguration<Electro
         builder.ToTable("electronic_signatures");
         builder.HasKey(s => s.Id);
 
+        // Id is allocated deterministically (max+1) inside the signing transaction:
+        // AuditEntry.SignatureId must be known at insert time, and append-only triggers
+        // forbid a follow-up UPDATE to fill the cross-reference.
+        builder.Property(s => s.Id).ValueGeneratedNever();
+
         builder.Property(s => s.Meaning).HasConversion<string>().HasMaxLength(32);
         builder.Property(s => s.Reason).HasMaxLength(1024).IsRequired();
         builder.Property(s => s.LinkedEntityType).HasMaxLength(64).IsRequired();

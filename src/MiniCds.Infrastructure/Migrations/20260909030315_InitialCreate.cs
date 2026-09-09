@@ -62,8 +62,7 @@ namespace MiniCds.Infrastructure.Migrations
                 name: "electronic_signatures",
                 columns: table => new
                 {
-                    Id = table.Column<long>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
+                    Id = table.Column<long>(type: "INTEGER", nullable: false),
                     UserId = table.Column<long>(type: "INTEGER", nullable: false),
                     Meaning = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
                     Reason = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: false),

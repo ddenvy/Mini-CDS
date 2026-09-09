@@ -37,7 +37,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 3 | DSP pipeline: MA → SG → ALS → PeakDetector → SignalProcessor | ✅ Закрыт (26/26 tests) |
 | 4 | Persistence: CdsDbContext, EF configurations, SQLite migration, Persistence tests | ✅ Закрыт (3/3 tests) |
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
-| 6 | AuditService, SignatureService (mock), PasswordHasher | 🟡 В работе: PasswordHasher ✅, AuditService ✅ |
+| 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
 | 7 | WPF host + DI, LoginWindow, AuditView | ⚪ Запланирован |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
@@ -394,6 +394,41 @@ AuditTrailTests), а **что именно** сервис запрашивает
 
 ---
 
+### 2026-09-09 — Milestone 6, часть 3: SignatureService. Milestone закрыт.
+
+**План:** `SignatureService : ISignatureService` (Infrastructure/Persistence) — переаутентификация
+(username+password) + атомарная вставка подписи и её аудит-записи. 7 тестов на in-memory SQLite.
+
+**Сделано:**
+- Отказ (null, ничего не записано) при: неверный пароль, неизвестный/неактивный пользователь,
+  **несовпадение `user.Id != actorUserId`** (Part 11: подписывает тот, кто переаутентифицировался).
+- Перекрёстные ссылки `audit.SignatureId ↔ signature.AuditEntryId`: обе id известны ДО вставки
+  (детерминированный max+1 в транзакции), т.к. append-only триггеры запрещают UPDATE-дописывание.
+- Поправка к прошлому разговору: `SignatureId` НЕ входит в payload хэша — пересчёт хэша не нужен.
+- `ElectronicSignature.Id` → `ValueGeneratedNever` (как у AuditEntry) + перегенерация InitialCreate.
+- Реализация в Infrastructure (I/O + DbContext), не в Application — уточнение плана по той же
+  причине, что и AuditTrail.
+
+**Проблемы / ловушки:**
+1. **CS0266 `MaxAsync`**: `IQueryable<long?>.MaxAsync()` → `Task<long?>`; `DefaultIfEmpty(0)`
+   тип элемента НЕ меняет (был декоративным). Фикс — идиома `MaxAsync() ?? 0`.
+2. **Ошибка команды EF (моя):** `migrations remove` снимает ПОСЛЕДНЮЮ миграцию стека. При
+   стеке [InitialCreate, AddAppendOnlyTriggers] первая же remove снесла триггеры, а add InitialCreate
+   упал к «name is used». Восстановлено: remove → add InitialCreate → add триггеры + SQL заново.
+   **Страж сработал:** тест триггера поймал бы потерю. Правило: перед remove — `migrations list`.
+3. **CS0118 в WPF (`App : Application`)**: внутри `namespace MiniCds.Wpf` простое имя `Application`
+   разрешается наружу в namespace `MiniCds.Application` (слой) — член внешнего namespace ЗАТИРАЕТ
+   using-алиас файла. Алиас не помог; фикс — полная квалификация `System.Windows.Application`.
+   Правило WPF-слоя: `Application` всегда с полным именем. (Альтернатива — переименование namespace
+   слоя — отклонена: too broad, surgical changes.)
+4. Пятый «API по памяти» подряд (`MaxAsync`) — все пять пойманы компилятором до рантайма.
+
+**Итог:** 15/15 Persistence-фильтр (8 + 7), включая зелёный тест триггеров после восстановления
+миграций. Milestone 6 закрыт. Следующий — Milestone 7: WPF-хост + DI (Generic Host, сидинг
+system-аккаунта → разблокирует FailedLogin-аудит).
+
+---
+
 ## Архитектурные решения, зафиксированные навсегда
 
 | Решение | Обоснование |
@@ -420,3 +455,5 @@ AuditTrailTests), а **что именно** сервис запрашивает
 - FluentAssertions под коммерческой лицензией — при переходе в прод заменить на Shouldly.
 - `FailedLogin` не аудируется до появления system-аккаунта (сидинг, Milestone 7).
 - `IAuditTrail.AppendAsync` без `CancellationToken` — расширить контракт при необходимости.
+- В WPF-слое базовый класс писать `System.Windows.Application` (конфликт с namespace слоя).
+- Неудачные попытки подписи (wrong password) не аудируются — до system-аккаунта (Milestone 7).

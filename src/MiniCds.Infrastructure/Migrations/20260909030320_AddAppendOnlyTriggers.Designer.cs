@@ -11,8 +11,8 @@ using MiniCds.Infrastructure.Persistence;
 namespace MiniCds.Infrastructure.Migrations
 {
     [DbContext(typeof(CdsDbContext))]
-    [Migration("20260909015429_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260909030320_AddAppendOnlyTriggers")]
+    partial class AddAppendOnlyTriggers
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -75,7 +75,6 @@ namespace MiniCds.Infrastructure.Migrations
             modelBuilder.Entity("MiniCds.Domain.Entities.ElectronicSignature", b =>
                 {
                     b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("AuditEntryId")

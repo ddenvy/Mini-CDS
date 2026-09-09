@@ -72,7 +72,6 @@ namespace MiniCds.Infrastructure.Migrations
             modelBuilder.Entity("MiniCds.Domain.Entities.ElectronicSignature", b =>
                 {
                     b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("AuditEntryId")
