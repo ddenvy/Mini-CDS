@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MiniCds.Application.Audit;
+using MiniCds.Application.Auth;
 using MiniCds.Domain.Abstractions;
 using MiniCds.Infrastructure.Security;
 
@@ -27,6 +28,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuditTrail, AuditTrail>();
         services.AddScoped<ISignatureService, SignatureService>();
         services.AddScoped<AuditService>();
+        services.AddScoped<IUserStore, EfUserStore>();
+        services.AddScoped<AuthService>();
         services.AddScoped<DbSeeder>();
 
         return services;

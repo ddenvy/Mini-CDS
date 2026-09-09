@@ -38,7 +38,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 4 | Persistence: CdsDbContext, EF configurations, SQLite migration, Persistence tests | ✅ Закрыт (3/3 tests) |
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
-| 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | 🟡 В работе: хост+DI+сидинг+логи ✅, LoginWindow ⬜ |
+| 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | 🟡 В работе: хост+DI+сидинг+логи ✅, AuthService ✅, LoginWindow ⬜ |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
 
@@ -495,6 +495,43 @@ system-аккаунта → разблокирует FailedLogin-аудит).
 
 **Итог:** 76/76, лог пишется (`logs/cds-<date>.log`, проверено содержимое: `MiniCds host started`,
 `Seeding complete: CreatedCount=3, SystemUserId=1`). Осталось в Milestone 7: AuthService + LoginWindow.
+
+---
+
+### 2026-09-09 — Milestone 7, часть 3: AuthService + EfUserStore + DI registration
+
+**План:** `AuthService` (Application) с fail-closed аудитом, `IUserStore`/`EfUserStore` для read-only
+доступа к пользователям, регистрация в DI, тесты резолва.
+
+**Сделано:**
+- `AuthService` (Application/Auth) — логин с переаутентификацией, dummy-верификация для unknown user
+  (timing attack protection: `Lazy<(hash, salt)>` с `Guid.NewGuid()`), generic error messages
+  ("Invalid username or password." для всех failure-сценариев), fail-closed при сбое аудита
+  (исключение пробрасывается наверх — доступ запрещён).
+- `IUserStore` (Domain/Abstractions) — минимальный контракт: `FindByUsernameAsync` + `GetSystemUserIdAsync`.
+- `EfUserStore` (Infrastructure/Persistence) — `AsNoTracking` для read, fail-closed если system-аккаунт
+  не засеян (`InvalidOperationException` с явным сообщением).
+- Регистрация в DI: `IUserStore → EfUserStore` (Scoped), `AuthService` (Scoped).
+- Тесты: 6 AuthServiceTests (NSubstitute moки, `Arg.Any<object?>()` для всех object? параметров),
+  EfUserStoreTests (SQLite in-memory: сидинг → поиск, system id, fail при отсутствии system).
+- CompositionTests обновлён: проверка резолва `IUserStore` и `AuthService`.
+- **Полный прогон: 84/84** (76 из прошлого milestone + 6 AuthServiceTests + 2 EfUserStoreTests).
+
+**Проблемы / ловушки:**
+1. **NSubstitute AmbiguousArgumentsException** — два параметра `object?` подряд (`oldValues`, `newValues`)
+   в `AppendAsync`, NSubstitute не мог различить `null`-литералы без явных matchers. Фикс: `Arg.Any<object?>()`
+   для всех `object?` параметров + `Arg.Any<long?>()` для `signatureId`. Правило: если используешь matcher
+   для одного аргумента типа `T`, все аргументы того же типа должны быть через matcher.
+2. **DI-регистрация отсутствовала изначально** — без неё LoginWindow не смог бы резолвить `AuthService`.
+   Добавлено в `ServiceCollectionExtensions` + тест резолва в `CompositionTests` (ValidateOnBuild ловит
+   отсутствие регистрации на этапе сборки контейнера).
+3. **Dummy-верификация для unknown user** — критично для защиты от user enumeration по времени ответа:
+   `Lazy<(hash, salt)>` инициализируется один раз на процесс, `Guid.NewGuid()` обеспечивает уникальный
+   секрет. Без этого attacker мог бы различать "пользователь не найден" (быстрый отказ) от "неверный пароль"
+   (медленная PBKDF2-верификация).
+
+**Итог:** 84/84, DI-граф валиден, AuthService готов к использованию в LoginWindow. Следующий шаг:
+LoginWindow (WPF, окно из scope, AuthResult → смена окна на главное).
 
 ---
 

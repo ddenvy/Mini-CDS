@@ -2,6 +2,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using MiniCds.Application.Audit;
+using MiniCds.Application.Auth;
 using MiniCds.Domain.Abstractions;
 using MiniCds.Infrastructure.Persistence;
 
@@ -36,6 +37,8 @@ public class CompositionTests
         scope.ServiceProvider.GetRequiredService<IAuditTrail>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<ISignatureService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AuditService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<IUserStore>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AuthService>().Should().NotBeNull();
     }
 
     [Fact]
