@@ -39,7 +39,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
 | 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | ✅ Закрыт (94/94 tests) |
-| 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
+| 8 | Sample/Method entities, AcquisitionService, LiveChart | 🔶 В процессе (100/100 tests) |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
 
 ---
@@ -604,3 +604,63 @@ LoginWindow (WPF, окно из scope, AuthResult → смена окна на �
 - ~~Нет `DispatcherUnhandledException`-логера~~ — закрыто (Serilog + handler + CloseAndFlush).
 - Логи/БД используют относительные пути от CWD процесса (при IDE-запуске это корень репо).
   Для продакшена — абсолютные пути от `AppContext.BaseDirectory`.
+
+---
+
+### 2026-09-09 — Milestone 8, часть 1: Domain entities + EF configurations + SimulatorInstrumentSource
+
+**План:** создать сущности для хроматографии (Method, Sample, RawSignal, Peak), настроить EF-конфигурации
+с append-only семантикой, реализовать симулятор прибора для тестирования.
+
+**Сделано:**
+- **Domain entities** (`src/MiniCds.Domain/Entities/`):
+  - `Method.cs` — версионируемый метод с DSP-параметрами (JSON-сериализация `ProcessingParameters`).
+  - `Sample.cs` — образец с lifecycle (Queued → Running → Completed → Voided), void вместо delete
+    (21 CFR Part 11 compliance).
+  - `RawSignal.cs` — immutable сырой сигнал (byte[] для эффективности хранения).
+  - `Peak.cs` — immutable пик с метриками (JSON-сериализация `PeakMetrics`), void-флаг для re-integration.
+- **EF configurations** (`src/MiniCds.Infrastructure/Persistence/Configurations/`):
+  - `MethodConfiguration.cs` — JSON-конвертация `Parameters`, unique index на `(Name, Version)`.
+  - `SampleConfiguration.cs` — enum-to-string конвертация `Status`, FK с `DeleteBehavior.Restrict`.
+  - `RawSignalConfiguration.cs` — byte[] для `Points`, FK на `Sample`.
+  - `PeakConfiguration.cs` — JSON-конвертация `Metrics`, FK на `Sample` и `VoidedBy`.
+- **AppendOnlyInterceptor** обновлён: `RawSignal` — fully immutable (нельзя ни UPDATE, ни DELETE),
+  `Peak`/`Sample` — void вместо delete (проверка `VoidedAtUtc != null`).
+- **Миграция** `AddSampleMethodRawSignalPeak` — 4 новые таблицы с FK, индексами, snake_case именами.
+- **SimulatorInstrumentSource** (`src/MiniCds.Infrastructure/Instruments/`):
+  - Реализация `IInstrumentSource` с event-based API (`FrameReceived`).
+  - Генерация multi-Gaussian peaks в реальном времени с noise и baseline tilt.
+  - `InstrumentState` transitions: Idle → Streaming → Idle.
+  - `IAsyncDisposable` для graceful shutdown.
+- **Тесты** (`tests/MiniCds.Tests/Instruments/SimulatorInstrumentSourceTests.cs`):
+  - 6 тестов: state transitions, event raising, Gaussian peak generation, double-start protection,
+    DisposeAsync cleanup.
+- **IAuthService** — извлечён интерфейс из `AuthService` для тестирования (NSubstitute не мокает sealed classes).
+- **LoginWindow** (`src/MiniCds.Wpf/`):
+  - XAML + code-behind с Username/Password полями, error display, loading state.
+  - `LoginViewModel` с async-командой, INPC, fail-closed exception handling.
+  - `AsyncRelayCommand` — минимальная реализация ICommand для async-операций.
+  - Конвертеры: `StringToVisibilityConverter`, `InverseBoolConverter`.
+  - Интеграция в `App.xaml.cs`: LoginWindow → MainWindow flow.
+- **DI registration**: `IUserStore → EfUserStore`, `AuthService`, `IAuthService → AuthService`,
+  `LoginWindow` (Transient).
+- **Версии пакетов** синхронизированы: EF Core 10.0.11 → 10.0.12 (устранение assembly binding conflicts).
+
+**Проблемы / ловушки:**
+1. **NSubstitute + sealed class** — `AuthService` был sealed, NSubstitute не мокает sealed classes.
+   Решение: извлечь `IAuthService` интерфейс, регистрировать в DI как `IAuthService → AuthService`.
+2. **NSubstitute AmbiguousArgumentsException** — тесты `AuthServiceTests` падали: NSubstitute не мог
+   различить два подряд идущих параметра типа `object?` (`oldValues`, `newValues`). Решение: явные
+   matchers `Arg.Any<object?>()` для всех параметров того же типа.
+3. **EF Core version conflict** — Infrastructure использовал 10.0.11, WPF — 10.0.12. MSB3277 warning.
+   Решение: обновить Infrastructure до 10.0.12.
+4. **IInstrumentSource contract mismatch** — изначально реализовал `IAsyncEnumerable<SignalFrame>`,
+   но интерфейс использует event-based паттерн (`FrameReceived`). Переписал класс и тесты.
+5. **FluentAssertions API** — `HaveCountGreaterOrEqualTo` не существует, правильное имя
+   `HaveCountGreaterThanOrEqualTo`. `SignalFrame` — record struct, не nullable wrapper.
+6. **EF OwnsOne + readonly record struct** — `ProcessingParameters` и `PeakMetrics` — readonly record
+   struct, EF Core `OwnsOne` требует класс с setter'ами. Решение: JSON-конвертация через
+   `HasConversion(v => JsonSerializer.Serialize(v, jsonOptions), v => JsonSerializer.Deserialize<T>(v, jsonOptions))`.
+
+**Итог:** 100/100 тестов зелёные. Milestone 8 часть 1 закрыта. Следующий шаг — AcquisitionService
+(оркестрация: Instrument → DSP → DB) + LiveChart (WPF, real-time visualization).

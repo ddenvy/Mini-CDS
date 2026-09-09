@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MiniCds.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using MiniCds.Infrastructure.Persistence;
 namespace MiniCds.Infrastructure.Migrations
 {
     [DbContext(typeof(CdsDbContext))]
-    partial class CdsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260909052130_AddSampleMethodRawSignalPeak")]
+    partial class AddSampleMethodRawSignalPeak
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");

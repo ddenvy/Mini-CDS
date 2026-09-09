@@ -33,11 +33,20 @@ public sealed class AppendOnlyInterceptor : SaveChangesInterceptor
 
         foreach (var entry in context.ChangeTracker.Entries())
         {
-            if (entry.Entity is AuditEntry or ElectronicSignature &&
+            // Fully immutable: reject both Modified and Deleted
+            if (entry.Entity is AuditEntry or ElectronicSignature or RawSignal &&
                 entry.State is EntityState.Modified or EntityState.Deleted)
             {
                 throw new InvalidOperationException(
                     $"{entry.Entity.GetType().Name} is append-only: modification and deletion are forbidden.");
+            }
+
+            // Voidable: reject Deleted, but allow Modified for void operations
+            if (entry.Entity is Peak or Sample &&
+                entry.State is EntityState.Deleted)
+            {
+                throw new InvalidOperationException(
+                    $"{entry.Entity.GetType().Name} cannot be deleted: use void instead.");
             }
         }
     }

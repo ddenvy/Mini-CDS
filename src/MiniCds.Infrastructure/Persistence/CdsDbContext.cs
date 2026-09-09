@@ -12,6 +12,10 @@ public class CdsDbContext(DbContextOptions<CdsDbContext> options) : DbContext(op
     public DbSet<User> Users => Set<User>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<ElectronicSignature> ElectronicSignatures => Set<ElectronicSignature>();
+    public DbSet<Method> Methods => Set<Method>();
+    public DbSet<Sample> Samples => Set<Sample>();
+    public DbSet<RawSignal> RawSignals => Set<RawSignal>();
+    public DbSet<Peak> Peaks => Set<Peak>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
