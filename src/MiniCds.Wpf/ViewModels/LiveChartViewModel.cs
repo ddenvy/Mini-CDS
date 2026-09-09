@@ -4,10 +4,13 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
+using Microsoft.Extensions.DependencyInjection;
 using MiniCds.Domain.Abstractions;
 using MiniCds.Domain.Entities;
+using MiniCds.Domain.Enums;
 using MiniCds.Domain.ValueObjects;
 using MiniCds.Wpf.Infrastructure;
+using MiniCds.Wpf.Views;
 
 namespace MiniCds.Wpf.ViewModels;
 
@@ -17,6 +20,7 @@ public sealed class LiveChartViewModel : INotifyPropertyChanged
     private readonly ISampleRepository _sampleRepository;
     private readonly IMethodRepository _methodRepository;
     private readonly IInstrumentSource _instrumentSource;
+    private readonly IServiceProvider _serviceProvider;
     private readonly long _actorUserId;
 
     private bool _isAcquiring;
@@ -29,17 +33,20 @@ public sealed class LiveChartViewModel : INotifyPropertyChanged
         ISampleRepository sampleRepository,
         IMethodRepository methodRepository,
         IInstrumentSource instrumentSource,
+        IServiceProvider serviceProvider,
         long actorUserId)
     {
         _acquisitionService = acquisitionService;
         _sampleRepository = sampleRepository;
         _methodRepository = methodRepository;
         _instrumentSource = instrumentSource;
+        _serviceProvider = serviceProvider;
         _actorUserId = actorUserId;
 
         StartAcquisitionCommand = new AsyncRelayCommand(StartAcquisitionAsync, CanStartAcquisition);
         StopAcquisitionCommand = new AsyncRelayCommand(StopAcquisitionAsync, CanStopAcquisition);
         LoadSamplesCommand = new AsyncRelayCommand(LoadSamplesAsync, () => true);
+        VoidSampleCommand = new AsyncRelayCommand(VoidSampleAsync, CanVoidSample);
 
         _acquisitionService.FrameProcessed += OnFrameProcessed;
         _acquisitionService.PeaksDetected += OnPeaksDetected;
@@ -93,16 +100,21 @@ public sealed class LiveChartViewModel : INotifyPropertyChanged
             _selectedSample = value;
             OnPropertyChanged();
             ((AsyncRelayCommand)StartAcquisitionCommand).RaiseCanExecuteChanged();
+            ((AsyncRelayCommand)VoidSampleCommand).RaiseCanExecuteChanged();
         }
     }
 
     public ICommand StartAcquisitionCommand { get; }
     public ICommand StopAcquisitionCommand { get; }
     public ICommand LoadSamplesCommand { get; }
+    public ICommand VoidSampleCommand { get; }
 
     private bool CanStartAcquisition() => !IsAcquiring && SelectedSample is not null;
 
     private bool CanStopAcquisition() => IsAcquiring;
+
+    private bool CanVoidSample() =>
+        !IsAcquiring && SelectedSample is not null && SelectedSample.Status != SampleStatus.Voided;
 
     private async Task StartAcquisitionAsync()
     {
@@ -138,6 +150,30 @@ public sealed class LiveChartViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             MessageBox.Show($"Failed to stop acquisition: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task VoidSampleAsync()
+    {
+        if (SelectedSample is null) return;
+
+        var dialog = ActivatorUtilities.CreateInstance<SignatureDialog>(_serviceProvider, _actorUserId);
+        dialog.SetEntity(nameof(Sample), SelectedSample.Id);
+        var result = dialog.ShowDialog();
+
+        if (result != true || dialog.Signature is null) return;
+
+        try
+        {
+            await _sampleRepository.UpdateStatusAsync(SelectedSample.Id, SampleStatus.Voided);
+            SelectedSample.Status = SampleStatus.Voided;
+            MessageBox.Show($"Sample '{SelectedSample.Name}' voided successfully.",
+                "Sample Voided", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to void sample: {ex.Message}",
+                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

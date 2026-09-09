@@ -949,3 +949,39 @@ MQTT end-to-end, README.
 **Итог:** 140/140 тестов зелёные. Теперь в главном окне доступен LiveChart с управлением acquизицией,
 графиком сигнала и детектированными пиками. **Далее:** SignatureDialog (Milestone 10), PeaksView, AuditView,
 MQTT end-to-end, README.
+
+---
+
+### 2026-09-09 — Milestone 10: SignatureDialog (электронная подпись)
+
+**План:** реализовать диалог электронной подписи (21 CFR Part 11) и интегрировать его с критичным действием (void sample).
+
+**Сделано:**
+- **SignatureDialogViewModel** (`src/MiniCds.Wpf/ViewModels/SignatureDialogViewModel.cs`):
+  - Зависимости: `ISignatureService`, `actorUserId`, `closeDialog` callback, `onSigned` callback.
+  - Свойства: `Username`, `Password` (set-only, синхронизируется из `PasswordBox`), `SelectedMeaning`,
+    `Reason`, `ErrorMessage`, `IsBusy`, `AvailableMeanings` (все значения `SignatureMeaning`).
+  - `SignCommand` (AsyncRelayCommand) — вызывает `ISignatureService.SignAsync`, при ошибке показывает
+    `ErrorMessage`, при успехе вызывает `onSigned` и закрывает диалог.
+  - `CancelCommand` — закрывает диалог с `false`.
+  - `CanSign` — требует непустые Username, Password, Reason.
+  - `LinkedEntityType`/`LinkedEntityId` — задаются вызывающим кодом для привязки подписи к сущности.
+- **SignatureDialog** (`src/MiniCds.Wpf/Views/SignatureDialog.xaml` + `.xaml.cs`):
+  - XAML: TextBox Username, PasswordBox, ComboBox Meaning, TextBox Reason (многострочный),
+    TextBlock для ошибок, кнопки Sign/Cancel.
+  - code-behind: принимает `ISignatureService` + `actorUserId`, создаёт ViewModel внутри,
+    синхронизирует `PasswordBox.Password` → `viewModel.Password`, отображает/скрывает ошибку,
+    захватывает `ElectronicSignature` через `onSigned` callback.
+  - `SetEntity(type, id)` — привязка подписи к сущности.
+  - `Signature` — публичное свойство с результатом подписи.
+- **LiveChartViewModel** — добавлено:
+  - `IServiceProvider` в конструктор (для создания диалога через `ActivatorUtilities.CreateInstance`).
+  - `VoidSampleCommand` (AsyncRelayCommand) — открывает `SignatureDialog`, при успешной подписи
+    вызывает `ISampleRepository.UpdateStatusAsync(sampleId, SampleStatus.Voided)`.
+  - `CanVoidSample` — доступно только если sample выбран, не voided и acquisition не идёт.
+  - В `SelectedSample.set` добавлен `RaiseCanExecuteChanged` для `VoidSampleCommand`.
+- **LiveChartView.xaml** — добавлена кнопка "Void Sample" в control panel.
+- **LiveChartViewModelTests** — добавлен `IServiceProvider` mock в конструктор.
+
+**Итог:** 140/140 тестов зелёные, 0 предупреждений. SignatureDialog реализован и интегрирован с void sample.
+**Далее:** PeaksView, AuditView, MQTT end-to-end, README.

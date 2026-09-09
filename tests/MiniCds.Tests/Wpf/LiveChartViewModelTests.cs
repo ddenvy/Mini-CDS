@@ -15,6 +15,7 @@ public class LiveChartViewModelTests
     private readonly ISampleRepository _sampleRepository = Substitute.For<ISampleRepository>();
     private readonly IMethodRepository _methodRepository = Substitute.For<IMethodRepository>();
     private readonly IInstrumentSource _instrumentSource = Substitute.For<IInstrumentSource>();
+    private readonly IServiceProvider _serviceProvider = Substitute.For<IServiceProvider>();
     private readonly LiveChartViewModel _viewModel;
 
     public LiveChartViewModelTests()
@@ -24,6 +25,7 @@ public class LiveChartViewModelTests
             _sampleRepository,
             _methodRepository,
             _instrumentSource,
+            _serviceProvider,
             actorUserId: 1);
     }
 
