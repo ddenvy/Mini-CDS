@@ -5,7 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MiniCds.Infrastructure.Instruments;
 using MiniCds.Infrastructure.Persistence;
+using MiniCds.Domain.Abstractions;
 using Serilog;
 
 namespace MiniCds.Wpf;
@@ -31,6 +33,33 @@ public partial class App : System.Windows.Application
                 var connectionString = context.Configuration.GetConnectionString("CdsDb")
                     ?? throw new InvalidOperationException("ConnectionStrings:CdsDb is not configured.");
                 services.AddMiniCdsPersistence(connectionString);
+
+                // Instrument source: Simulator or Mqtt based on configuration
+                var instrumentMode = context.Configuration["Instrument:Mode"] ?? "Simulator";
+                if (instrumentMode.Equals("Mqtt", StringComparison.OrdinalIgnoreCase))
+                {
+                    var mqttHost = context.Configuration["Instrument:Mqtt:BrokerHost"] ?? "localhost";
+                    var mqttPort = int.Parse(context.Configuration["Instrument:Mqtt:BrokerPort"] ?? "1883");
+                    var deviceId = context.Configuration["Instrument:Mqtt:DeviceId"] ?? "device-001";
+                    services.AddScoped<IInstrumentSource>(_ =>
+                        new MqttInstrumentSource(mqttHost, mqttPort, deviceId));
+                }
+                else
+                {
+                    services.AddScoped<IInstrumentSource>(_ => new SimulatorInstrumentSource(
+                        sampleRateHz: 10,
+                        durationSeconds: 60,
+                        peaks: new[]
+                        {
+                            new SimulatorPeakDefinition(100, 5.0, 0.3),
+                            new SimulatorPeakDefinition(80, 12.0, 0.4),
+                            new SimulatorPeakDefinition(120, 20.0, 0.5),
+                            new SimulatorPeakDefinition(60, 30.0, 0.6)
+                        },
+                        noiseStdDev: 2.0,
+                        baselineSlope: 0.1));
+                }
+
                 services.AddTransient<LoginWindow>();
                 services.AddTransient<MainWindow>();
                 services.AddTransient<Views.ReportDialog>();

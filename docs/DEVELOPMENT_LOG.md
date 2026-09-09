@@ -1032,3 +1032,35 @@ MQTT end-to-end, README.
 
 **Итог:** 140/140 тестов зелёные. Доступен просмотр журнала аудита и проверка целостности
 hash-chain (21 CFR Part 11 §11.10(e)). **Далее:** MQTT end-to-end, README.
+
+---
+
+### 2026-09-09 — MQTT end-to-end (MqttInstrumentSource + Python publisher)
+
+**План:** добавить MQTT источник сигнала для интеграции с реальным/эмулируемым оборудованием.
+
+**Сделано:**
+- **MQTTnet 4.3.6.1152** добавлен в `MiniCds.Infrastructure`.
+- **MqttInstrumentSource** (`src/MiniCds.Infrastructure/Instruments/MqttInstrumentSource.cs`):
+  - Подключается к MQTT брокеру, подписывается на `instrument/{deviceId}/signal` (QoS 1).
+  - Парсит JSON двух форматов:
+    - single: `{"t": 12.34, "v": 0.567}` → один `SignalFrame`
+    - batch: `{"rate": 10, "t0": 0.0, "v": [0.11, 0.12, ...]}` → N `SignalFrame`
+  - `FrameReceived` поднимается для каждой точки.
+- **appsettings.json** — секция `Instrument`:
+  ```json
+  "Instrument": {
+    "Mode": "Simulator",
+    "Mqtt": { "BrokerHost": "localhost", "BrokerPort": 1883, "DeviceId": "device-001" }
+  }
+  ```
+- **App.xaml.cs** — регистрация `IInstrumentSource` с выбором `Simulator` или `Mqtt`
+  на основе `Instrument:Mode`. Регистрация перенесена из `ServiceCollectionExtension`.
+- **Python publisher** (`tools/mqtt-publisher/publish_chromatogram.py`):
+  - paho-mqtt, генерирует гауссовы пики + шум + baseline slope.
+  - Режимы `batch` (по умолчанию, 50 точек) и `single`.
+  - Опции: `--broker`, `--port`, `--device`, `--duration`, `--rate`, `--noise`, `--slope`.
+  - `requirements.txt` с `paho-mqtt>=2.0.0`.
+
+**Итог:** 140/140 тестов зелёные. MQTT источник реализован end-to-end. Для работы нужен
+MQTT брокер (mosquitto или аналогичный). **Далее:** README с GIF, финальная полировка.
