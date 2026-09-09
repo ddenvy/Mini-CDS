@@ -1,9 +1,12 @@
 // c:\Develop\Mini-CDS\src\MiniCds.Infrastructure\Persistence\ServiceCollectionExtensions.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using MiniCds.Application.Acquisition;
 using MiniCds.Application.Audit;
 using MiniCds.Application.Auth;
+using MiniCds.Application.SignalProcessing;
 using MiniCds.Domain.Abstractions;
+using MiniCds.Infrastructure.Persistence.Repositories;
 using MiniCds.Infrastructure.Security;
 
 namespace MiniCds.Infrastructure.Persistence;
@@ -31,7 +34,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserStore, EfUserStore>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<DbSeeder>();
-
+        services.AddScoped<ISampleRepository, SampleRepository>();
+        services.AddScoped<IMethodRepository, MethodRepository>();
+        services.AddScoped<IRawSignalRepository, RawSignalRepository>();
+        services.AddScoped<IPeakRepository, PeakRepository>();
+        services.AddScoped<ISignalProcessor, SignalProcessor>();
+        services.AddScoped<AcquisitionService>();
         return services;
     }
 }

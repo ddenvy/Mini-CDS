@@ -15,5 +15,7 @@ public enum AuditAction
     Approve,
     ExportReport,
     Login,
-    FailedLogin
+    FailedLogin,
+    SampleStatusChanged,
+    PeakDetected
    }

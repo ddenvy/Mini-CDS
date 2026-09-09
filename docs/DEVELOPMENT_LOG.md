@@ -39,7 +39,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
 | 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | ✅ Закрыт (94/94 tests) |
-| 8 | Sample/Method entities, AcquisitionService, LiveChart | 🔶 В процессе (100/100 tests) |
+| 8 | Sample/Method entities, AcquisitionService, LiveChart | 🔶 В процессе (109/109 tests) |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
 
 ---
@@ -664,3 +664,49 @@ LoginWindow (WPF, окно из scope, AuthResult → смена окна на �
 
 **Итог:** 100/100 тестов зелёные. Milestone 8 часть 1 закрыта. Следующий шаг — AcquisitionService
 (оркестрация: Instrument → DSP → DB) + LiveChart (WPF, real-time visualization).
+
+---
+
+### 2026-09-09 — Milestone 8, часть 2: AcquisitionService + Repository pattern
+
+**План:** реализовать оркестратор acquisition (Instrument → DSP → DB), абстрагировать persistence через
+репозитории для соблюдения Clean Architecture.
+
+**Сделано:**
+- **Domain repositories** (`src/MiniCds.Domain/Abstractions/`):
+  - `ISampleRepository.cs` — FindByIdAsync, UpdateStatusAsync.
+  - `IMethodRepository.cs` — FindByIdAsync.
+  - `IRawSignalRepository.cs` — AddAsync.
+  - `IPeakRepository.cs` — AddAsync, AddRangeAsync.
+- **Infrastructure implementations** (`src/MiniCds.Infrastructure/Persistence/Repositories/`):
+  - `SampleRepository.cs`, `MethodRepository.cs`, `RawSignalRepository.cs`, `PeakRepository.cs`.
+- **AcquisitionService** (`src/MiniCds.Application/Acquisition/AcquisitionService.cs`):
+  - Подписка на `IInstrumentSource.FrameReceived`, буферизация SignalFrame.
+  - Применение DSP pipeline (ISignalProcessor) к буферу кадров.
+  - Сохранение RawSignal в БД (byte[] через Buffer.BlockCopy).
+  - Детекция пиков и сохранение Peak entities.
+  - Управление Sample lifecycle (Queued → Running → Completed).
+  - Аудит всех действий через IAuditTrail.
+  - События `FrameProcessed` и `PeaksDetected` для real-time UI.
+- **AuditAction** enum additions: `SampleStatusChanged`, `PeakDetected`.
+- **DI registration**: `ISignalProcessor → SignalProcessor` (Scoped), repositories (Scoped).
+- **Тесты** (`tests/MiniCds.Tests/Acquisition/AcquisitionServiceTests.cs`):
+  - 9 тестов: lifecycle transitions, RawSignal/Peak persistence, event raising, audit trail verification,
+    double-start protection, invalid state handling.
+
+**Проблемы / ловушки:**
+1. **Clean Architecture violation** — Application не должен зависеть от Infrastructure. Решение:
+   извлечь repository interfaces в Domain, implementations в Infrastructure.
+2. **FOREIGN KEY constraint failed** — тесты падали при SeedMethodAsync: `CreatedByUserId=1` ссылался
+   на несуществующего пользователя. Решение: добавить `SeedUserAsync()` перед сидированием Method/Sample.
+3. **Simulator peak timing** — `RetentionTime=5.0` не попадал в 1-секундное окно теста. Решение:
+   изменить на `RetentionTime=0.5, Sigma=0.1`.
+4. **ISignalProcessor not registered** — CompositionTests падали: AcquisitionService требует ISignalProcessor,
+   но он не был зарегистрирован в DI. Решение: добавить `services.AddScoped<ISignalProcessor, SignalProcessor>()`.
+5. **IAuditTrail.AppendAsync signature** — не принимает CancellationToken. Убрал именованный параметр `ct:`
+   из вызовов.
+6. **IAsyncLifetime.InitializeAsync** — тестовый класс реализует IAsyncLifetime, но вся инициализация
+   в конструкторе. Добавил пустой `InitializeAsync() => Task.CompletedTask`.
+
+**Итог:** 109/109 тестов зелёные. AcquisitionService работает корректно. Следующий шаг — LiveChart
+(WPF, real-time visualization) для завершения Milestone 8.
