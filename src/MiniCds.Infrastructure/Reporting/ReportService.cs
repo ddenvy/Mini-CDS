@@ -10,19 +10,19 @@ public sealed class ReportService : IReportService
 {
     private readonly ISampleRepository _sampleRepository;
     private readonly IReportRepository _reportRepository;
-    private readonly IReportExporter _reportExporter;
+    private readonly IReadOnlyDictionary<string, IReportExporter> _exporters;
     private readonly IAuditTrail _auditTrail;
 
     public ReportService(
         ISampleRepository sampleRepository,
         IReportRepository reportRepository,
-        IReportExporter reportExporter,
+        IEnumerable<IReportExporter> exporters,
         IAuditTrail auditTrail)
     {
         _sampleRepository = sampleRepository;
         _reportRepository = reportRepository;
-        _reportExporter = reportExporter;
         _auditTrail = auditTrail;
+        _exporters = exporters.ToDictionary(e => e.Format, StringComparer.OrdinalIgnoreCase);
     }
 
     public async Task<Report> GenerateReportAsync(
@@ -32,6 +32,9 @@ public sealed class ReportService : IReportService
         long actorUserId,
         CancellationToken ct = default)
     {
+        if (!_exporters.TryGetValue(format, out var exporter))
+            throw new NotSupportedException($"Report format '{format}' is not supported.");
+
         var samples = new List<Sample>();
         foreach (var sampleId in sampleIds)
         {
@@ -52,8 +55,10 @@ public sealed class ReportService : IReportService
         var reportId = await _reportRepository.AddAsync(report, ct);
         report.Id = reportId;
 
-        var outputPath = Path.Combine("Reports", $"{reportId}.csv");
-        await _reportExporter.ExportAsync(samples, outputPath, ct);
+        var extension = format.Equals("PDF", StringComparison.OrdinalIgnoreCase) ? "pdf" : "csv";
+        var outputPath = Path.Combine("Reports", $"{reportId}.{extension}");
+        Directory.CreateDirectory("Reports");
+        await exporter.ExportAsync(samples, outputPath, ct);
 
         report.FilePath = outputPath;
         await _reportRepository.UpdateAsync(report, ct);

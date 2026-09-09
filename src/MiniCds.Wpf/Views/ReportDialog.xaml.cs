@@ -23,4 +23,5 @@ public partial class ReportDialog : Window
 
     public IReadOnlyList<long> GetSelectedSampleIds() => _viewModel.GetSelectedSampleIds();
     public string ReportTitle => _viewModel.ReportTitle;
+    public string Format => _viewModel.SelectedFormat;
 }

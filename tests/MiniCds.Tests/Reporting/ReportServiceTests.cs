@@ -40,7 +40,7 @@ public class ReportServiceTests : IAsyncLifetime
         _reportRepository = new ReportRepository(_dbContext);
         _reportExporter = Substitute.For<IReportExporter>();
         _reportExporter.Format.Returns("CSV");
-        
+
         _auditTrail = Substitute.For<IAuditTrail>();
         _auditTrail.AppendAsync(
             Arg.Any<AuditAction>(),
@@ -55,7 +55,7 @@ public class ReportServiceTests : IAsyncLifetime
         _reportService = new ReportService(
             _sampleRepository,
             _reportRepository,
-            _reportExporter,
+            new[] { _reportExporter },
             _auditTrail);
     }
 

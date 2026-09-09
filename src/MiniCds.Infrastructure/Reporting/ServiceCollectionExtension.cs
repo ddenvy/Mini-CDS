@@ -12,6 +12,7 @@ public static class ServiceCollectionExtension
     {
         services.AddScoped<IReportRepository, ReportRepository>();
         services.AddScoped<IReportExporter, CsvReportExporter>();
+        services.AddScoped<IReportExporter, PdfReportExporter>();
         services.AddScoped<IReportService, ReportService>();
         return services;
     }

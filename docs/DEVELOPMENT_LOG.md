@@ -40,7 +40,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
 | 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | ✅ Закрыт (94/94 tests) |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ✅ Закрыт (120/120 tests) |
-| 9 | ReportService + CSV export + ReportDialog UI | 🔄 В работе (140/140 tests, CSV готов, PDF в плане) |
+| 9 | ReportService + CSV export + ReportDialog UI | ✅ Закрыт (140/140 tests, CSV + PDF) |
 
 ---
 
@@ -890,3 +890,41 @@ LoginWindow (WPF, окно из scope, AuthResult → смена окна на �
 логин → MainWindow → File > Export Report → выбор samples → OK → CSV-отчёт. **Осталось в Milestone 9:**
 PdfReportExporter (QuestPDF). **Далее:** SignatureDialog (Milestone 10), интеграция LiveChart в MainWindow,
 PeaksView, AuditView, MQTT end-to-end, README.
+
+---
+
+### 2026-09-09 — Milestone 9, часть 4: PdfReportExporter (QuestPDF) + выбор формата
+
+**План:** добавить PDF-экспорт через QuestPDF, поддержать выбор формата в ReportDialog.
+
+**Сделано:**
+- **QuestPDF** — пакет `QuestPDF 2024.12.1` добавлен в `MiniCds.Infrastructure.csproj`.
+  Лицензия `Community` устанавливается в статическом конструкторе `PdfReportExporter`.
+- **PdfReportExporter** (`src/MiniCds.Infrastructure/Reporting/PdfReportExporter.cs`):
+  - `Format = "PDF"`.
+  - Документ A4: заголовок "Chromatography Report", дата генерации, для каждого sample —
+    имя, метод, статус, дата создания + таблица пиков (RT, Height, Area, FWHM, Plates, Tailing).
+  - Для samples без пиков — "No peaks detected.".
+  - Нумерация страниц в футере.
+- **ReportService** — рефакторинг:
+  - Конструктор принимает `IEnumerable<IReportExporter>` вместо одного `IReportExporter`.
+  - Экспортеры складываются в словарь по `Format` (case-insensitive).
+  - Выбор экспортера по параметру `format`; при неизвестном формате — `NotSupportedException`.
+  - Расширение файла определяется по формату (`.csv` / `.pdf`), директория `Reports/` создаётся автоматически.
+- **DI** — зарегистрированы оба экспортера: `CsvReportExporter` и `PdfReportExporter`.
+- **ReportDialogViewModel** — добавлены `AvailableFormats = { "CSV", "PDF" }` и `SelectedFormat` (по умолчанию "CSV").
+- **ReportDialog.xaml** — ComboBox для выбора формата перед списком samples.
+- **ReportDialog.xaml.cs** — публичное свойство `Format` для доступа из MainWindow.
+- **MainWindow.xaml.cs** — `GenerateReportAsync` вызывается с `dialog.Format` вместо захардкоженного "CSV".
+
+**Проблемы / ловушки:**
+1. **QuestPDF `.Gray()` не существует** — `TextBlockDescriptor` не имеет метода `.Gray()`.
+   Решение: использовать `.FontColor(Colors.Grey.Lighten1)`.
+2. **Файл заблокирован запущенным приложением** — сборка WPF падала с MSB3027, т.к. Mini-CDS был запущен.
+   Решение: закрыть приложение перед сборкой (`Stop-Process -Id 3836 -Force`).
+3. **Дубликат `using System.IO`** — `CsvReportExporterTests.cs` имел две одинаковые директивы.
+   Решение: удалить дубликат.
+
+**Итог:** 140/140 тестов зелёные, 0 предупреждений. Milestone 9 полностью закрыт (CSV + PDF экспорт).
+**Далее:** SignatureDialog (Milestone 10), интеграция LiveChart в MainWindow, PeaksView, AuditView,
+MQTT end-to-end, README.

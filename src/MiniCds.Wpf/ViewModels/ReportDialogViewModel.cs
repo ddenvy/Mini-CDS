@@ -14,6 +14,7 @@ public sealed class ReportDialogViewModel : INotifyPropertyChanged
     private readonly ISampleRepository _sampleRepository;
     private readonly Action<bool> _closeDialog;
     private string _reportTitle = "Chromatography Report";
+    private string _selectedFormat = "CSV";
     private bool _isLoading;
 
     public ReportDialogViewModel(ISampleRepository sampleRepository, Action<bool> closeDialog)
@@ -26,6 +27,8 @@ public sealed class ReportDialogViewModel : INotifyPropertyChanged
 
     public ObservableCollection<SampleSelectionItem> AvailableSamples { get; } = new();
 
+    public IReadOnlyList<string> AvailableFormats { get; } = new[] { "CSV", "PDF" };
+
     public string ReportTitle
     {
         get => _reportTitle;
@@ -33,6 +36,17 @@ public sealed class ReportDialogViewModel : INotifyPropertyChanged
         {
             if (_reportTitle == value) return;
             _reportTitle = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string SelectedFormat
+    {
+        get => _selectedFormat;
+        set
+        {
+            if (_selectedFormat == value) return;
+            _selectedFormat = value;
             OnPropertyChanged();
         }
     }

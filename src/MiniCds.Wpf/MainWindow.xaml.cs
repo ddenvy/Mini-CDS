@@ -37,10 +37,11 @@ public partial class MainWindow : Window
         }
 
         var title = dialog.ReportTitle;
+        var format = dialog.Format;
 
         try
         {
-            var report = await _reportService.GenerateReportAsync(selectedIds, title, "CSV", _actorUserId);
+            var report = await _reportService.GenerateReportAsync(selectedIds, title, format, _actorUserId);
             MessageBox.Show($"Report exported successfully:\n{report.FilePath}",
                 "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }

@@ -1,5 +1,4 @@
 // c:\Develop\Mini-CDS\tests\MiniCds.Tests\Reporting\CsvReportExporterTests.cs
-using System.IO;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
