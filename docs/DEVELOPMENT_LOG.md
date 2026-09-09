@@ -37,7 +37,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 3 | DSP pipeline: MA → SG → ALS → PeakDetector → SignalProcessor | ✅ Закрыт (26/26 tests) |
 | 4 | Persistence: CdsDbContext, EF configurations, SQLite migration, Persistence tests | ✅ Закрыт (3/3 tests) |
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
-| 6 | AuditService, SignatureService (mock), PasswordHasher | ⚪ Запланирован |
+| 6 | AuditService, SignatureService (mock), PasswordHasher | 🟡 В работе: PasswordHasher ✅ 6/6 |
 | 7 | WPF host + DI, LoginWindow, AuditView | ⚪ Запланирован |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
@@ -328,6 +328,34 @@ SQLite-триггеры (после них tamper-тест через сырой
 **Итог:** 8/8 Persistence, полный прогон **46/46** (26 SignalProcessing + 8 HashChain +
 8 Persistence + 4 TestSignalGenerator). Milestone 5 закрыт. Далее — AuditService (Application)
 + PasswordHasher (PBKDF2, Infrastructure), затем WPF-хост с DI.
+
+---
+
+### 2026-09-09 — Milestone 6, часть 1: PasswordHasher (PBKDF2-SHA256)
+
+**План:** реализовать `PasswordHasher : IPasswordHasher` в Infrastructure/Security + 6 тестов
+(round-trip, неверный пароль, уникальность соли, повреждённые данные, формат, юникод).
+
+**Сделано:**
+- `Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, SHA256, 32)`; соль 16 байт —
+  `RandomNumberGenerator.GetBytes` (крипто-стойкая, не `System.Random`).
+- Хранение — base64; сравнение — `CryptographicOperations.FixedTimeEquals` (защита от
+  timing-атак: обычное сравнение байт раскрывает позицию первого несовпадения по времени).
+- `Verify` на повреждённых данных возвращает `false`, не бросает: декодирование через
+  `TryFromBase64String` в буферы точного размера + сверка `bytesWritten`.
+
+**Проблемы / ловушки:**
+1. **CS7036 + CS8602** — выдуман несуществующий перегруз `TryFromBase64String(string, out byte[])`.
+   Реальный пишет в переданный `Span<byte>`-буфер. Исправление даже улучшило валидацию
+   (размер буфера = проверка длины бесплатно).
+2. **CS1061** — неверная цепочка FluentAssertions: `NotThrow().And.BeFalse()`. Для `Func<bool>`
+   значение возвращается через `.Which`: `NotThrow().Which.Should().BeFalse()`.
+3. **Системный паттерн:** третий случай «API по памяти» за проект (`SignatureMeaning.Approval`,
+   `TryFromBase64String`, `NotThrow().And`). Все три пойманы компилятором за секунды — но урок
+   один: незнакомый API сначала смотреть в подписях (F12/доки), потом писать.
+
+**Итог:** 6/6. Следующий шаг — `AuditService` (Application) с моком `IAuditTrail`
+(NSubstitute — пакет в тестовый проект ещё НЕ добавлен, добавить на этом шаге).
 
 ---
 
