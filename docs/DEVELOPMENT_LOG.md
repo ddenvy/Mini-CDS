@@ -38,7 +38,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 4 | Persistence: CdsDbContext, EF configurations, SQLite migration, Persistence tests | ✅ Закрыт (3/3 tests) |
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
-| 7 | WPF host + DI, LoginWindow, AuditView | ⚪ Запланирован |
+| 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | 🟡 В работе: хост+DI ✅, сидинг ⬜ |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
 
@@ -429,6 +429,40 @@ system-аккаунта → разблокирует FailedLogin-аудит).
 
 ---
 
+### 2026-09-09 — Milestone 7, часть 1: Generic Host + DI composition root
+
+**План:** `Host.CreateDefaultBuilder()` в App, регистрация сервисов, миграция при старте,
+окно из DI, `appsettings.json` со строкой подключения. Тест валидности DI-графа.
+
+**Сделано:**
+- **Решение по lifetimes: scope на окно.** `App.OnStartup` создаёт `IServiceScope`, окно живёт
+  в нём, при `Closed` — dispose. Сервисы+DbContext Scoped, хелперы (HashChain, PasswordHasher) —
+  Singleton. Лечит captive dependency — классическую desktop-ловушку (WPF-объекты долгоживущие).
+- `AddMiniCdsPersistence` — в **Infrastructure** (не в WPF): контракт-реализации принадлежат слою
+  инфраструктуры + только так DI-граф тестируется (см. проблему 1).
+- `CompositionTests` (4): `ValidateOnBuild + ValidateScopes` — контейнер проверяет граф и
+  lifetimes; singleton vs scoped поведение зафиксировано тестами.
+- `StartupUri` убран из App.xaml (иначе XAML создаст окно без DI); `MigrateAsync()` при старте.
+- Проверено запуском: окно появляется, `data/cds.db` создан, WAL-файлы активны.
+
+**Проблемы / ловушки:**
+1. **Namespace ≠ assembly.** Wire-up лежал в `Wpf/Composition/…` с namespace `MiniCds.Infrastructure`
+   — тесты (net10.0) физически не видят типы из WPF-проекта (net10.0-windows): CS1061. Лечится
+   только перемещением ФАЙЛА в Infrastructure, не правкой namespace.
+2. **appsettings.json не копируется в plain .NET SDK** (в отличие от Web SDK) — добавлен
+   `CopyToOutputDirectory=PreserveNewest` в csproj, иначе `optional:false` валит старт.
+3. **Относительный путь БД зависит от CWD процесса**, а не от папки exe: запуск из IDE создал
+   `data/cds.db` в корне репозитория. `data/` в .gitignore — безопасно, но путь стоит сделать
+   абсолютным (записано в техдолг).
+4. `async void OnStartup` — исключение после await убьёт процесс без внятного лога. Долг:
+   `DispatcherUnhandledException` + логирование.
+
+**Итог:** сборка зелёная, CompositionTests 4/4, приложение запускается, база мигрирована.
+Далее: DbSeeder (system-аккаунт + демо-пользователь) → разблокирует FailedLogin-аудит,
+затем LoginWindow.
+
+---
+
 ## Архитектурные решения, зафиксированные навсегда
 
 | Решение | Обоснование |
@@ -457,3 +491,5 @@ system-аккаунта → разблокирует FailedLogin-аудит).
 - `IAuditTrail.AppendAsync` без `CancellationToken` — расширить контракт при необходимости.
 - В WPF-слое базовый класс писать `System.Windows.Application` (конфликт с namespace слоя).
 - Неудачные попытки подписи (wrong password) не аудируются — до system-аккаунта (Milestone 7).
+- Путь БД относительный (от CWD процесса) — сделать абсолютный от `AppContext.BaseDirectory`.
+- Нет `DispatcherUnhandledException`-логера: `async void` в App глотает исключения старта.
