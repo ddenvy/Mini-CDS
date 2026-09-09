@@ -33,6 +33,7 @@ public partial class App : System.Windows.Application
                 services.AddMiniCdsPersistence(connectionString);
                 services.AddTransient<LoginWindow>();
                 services.AddTransient<MainWindow>();
+                services.AddTransient<Views.ReportDialog>();
             })
             .Build();
 
@@ -116,15 +117,20 @@ public partial class App : System.Windows.Application
             }
 
             Log.Information("User {Username} logged in successfully.", loginWindow.AuthResult?.Username);
+
+            var actorUserId = loginWindow.AuthResult?.UserId ?? 0;
+
+            // One DI scope per window: DbContext lives as long as the window does.
+            var windowScope = _host.Services.CreateScope();
+            var mainWindow = ActivatorUtilities.CreateInstance<MainWindow>(windowScope.ServiceProvider, actorUserId);
+            MainWindow = mainWindow;
+            mainWindow.Closed += (_, _) =>
+            {
+                windowScope.Dispose();
+                Shutdown();
+            };
+            mainWindow.Show();
         }
-
-        // One DI scope per window: DbContext lives as long as the window does.
-        var windowScope = _host.Services.CreateScope();
-        var mainWindow = windowScope.ServiceProvider.GetRequiredService<MainWindow>();
-        MainWindow = mainWindow;
-        mainWindow.Closed += (_, _) => windowScope.Dispose();
-        mainWindow.Show();
-
     }
 
     protected override async void OnExit(ExitEventArgs e)

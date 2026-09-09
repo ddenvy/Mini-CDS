@@ -16,6 +16,7 @@ public class CdsDbContext(DbContextOptions<CdsDbContext> options) : DbContext(op
     public DbSet<Sample> Samples => Set<Sample>();
     public DbSet<RawSignal> RawSignals => Set<RawSignal>();
     public DbSet<Peak> Peaks => Set<Peak>();
+    public DbSet<Report> Reports => Set<Report>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

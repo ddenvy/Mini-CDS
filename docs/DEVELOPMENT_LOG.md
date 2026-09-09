@@ -40,7 +40,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
 | 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | ✅ Закрыт (94/94 tests) |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ✅ Закрыт (120/120 tests) |
-| 9 | ReportService + CSV export | ⚪ Запланирован |
+| 9 | ReportService + CSV export + ReportDialog UI | 🔄 В работе (140/140 tests, CSV готов, PDF в плане) |
 
 ---
 
@@ -759,3 +759,134 @@ LoginWindow (WPF, окно из scope, AuthResult → смена окна на �
 
 **Итог:** 120/120 тестов зелёные (109 + 11 LiveChartViewModelTests). Milestone 8 полностью закрыт.
 Следующий milestone — ReportService + CSV export (Milestone 9).
+
+---
+
+### 2026-09-09 — Milestone 9, часть 1: Domain entities + interfaces + ReportService + CsvReportExporter
+
+**План:** создать сущность Report, интерфейсы (IReportService, IReportExporter, IReportRepository),
+реализовать CsvReportExporter и ReportService, добавить миграцию, зарегистрировать в DI.
+
+**Сделано:**
+- **Domain layer:**
+  - `Report` entity — `Id, Title, Format, FilePath, SampleCount, GeneratedAtUtc, GeneratedByUserId`.
+  - `IReportService` — `GenerateReportAsync(sampleIds, title, format, actorUserId, ct)`.
+  - `IReportExporter` — `ExportAsync(samples, filePath, ct)`, свойство `Format`.
+  - `IReportRepository` — `AddAsync`, `FindByIdAsync`.
+  - `ISampleRepository.FindByIdWithPeaksAsync` — добавлен для загрузки sample с peaks в один запрос (без N+1).
+  - `AuditAction.ReportGenerated` — добавлено в enum.
+- **Infrastructure layer:**
+  - `ReportConfiguration` — EF-конфигурация с FK на User (`GeneratedByUserId`), `DeleteBehavior.Restrict`.
+  - `ReportRepository` — реализация `IReportRepository`.
+  - `CsvReportExporter` — экспорт sample+peaks в CSV с `InvariantCulture`, заголовок + строки пиков.
+  - `ReportService` — сбор samples через `FindByIdWithPeaksAsync`, вызов `IReportExporter`, сохранение Report в БД,
+    audit-запись `ReportGenerated` через `IAuditTrail`.
+  - `ServiceCollectionExtension.AddReporting()` — регистрация `IReportService`, `IReportExporter`, `IReportRepository`.
+- **Миграция** `AddReportEntity` — таблица `reports` с FK, индексами, snake_case.
+- **DI:** `AddReporting()` вызван в `AddMiniCdsPersistence`.
+
+**Проблемы / ловушки:**
+1. **FOREIGN KEY constraint failed** — тесты `ReportServiceTests` падали при сидировании Sample: `CreatedByUserId=1`
+   ссылался на несуществующего пользователя. Решение: добавить `SeedUserAsync()` перед сидированием Method/Sample.
+2. **`IReportExporter` signature mismatch** — изначально экспортер принимал `SampleReport` (не существующий тип),
+   но интерфейс требовал `IReadOnlyList<Sample>`. Решение: убрать obsolete метод, привести сигнатуру к интерфейсу.
+3. **`Report` record 'with' syntax** — `Report` был record, но EF требует mutable свойства. Решение: использовать
+   прямое присваивание свойств вместо `with`-выражений.
+4. **`AddReporting` not found** — DI-регистрация лежала в `MiniCds.Infrastructure.Reporting`, но отсутствовал
+   `using` в `ServiceCollectionExtensions`. Решение: добавить `using MiniCds.Infrastructure.Reporting;`.
+
+**Итог:** Domain/Infrastructure готовы. Следующий шаг — тесты для `CsvReportExporter` и `ReportService`.
+
+---
+
+### 2026-09-09 — Milestone 9, часть 2: Tests (CsvReportExporterTests + ReportServiceTests)
+
+**План:** написать модульные и интеграционные тесты для CSV-экспортера и ReportService.
+
+**Сделано:**
+- **CsvReportExporterTests** (5 тестов):
+  - single sample with peaks → валидный CSV (заголовок + N строк пиков).
+  - sample without peaks → одна строка (только sample metadata).
+  - multiple samples → все samples в одном файле.
+  - CSV format correctness → разделители, `InvariantCulture`, порядок колонок.
+  - file creation → файл создаётся по указанному пути.
+- **ReportServiceTests** (5 тестов, SQLite in-memory):
+  - `GenerateReportAsync` с валидными samples → создаёт Report с корректным Title/Format/FilePath.
+  - вызывает `IReportExporter.ExportAsync` ровно один раз.
+  - записывает audit-entry `ReportGenerated` через `IAuditTrail`.
+  - persist Report в БД (проверка через `IReportRepository`).
+  - несуществующий sampleId → выброс исключения.
+
+**Проблемы / ловушки:**
+1. **Дубликат `using System.IO`** — `CsvReportExporterTests.cs` имел две директивы `using System.IO`.
+   Решение: удалить дубликат.
+2. **FOREIGN KEY constraint failed в SeedSampleWithPeaksAsync** — как и в части 1, нужен User перед Method/Sample.
+   Решение: `SeedUserAsync()` в начале теста.
+
+**Итог:** 10 тестов Reporting проходят. Следующий шаг — UI для экспорта (ReportDialog).
+
+---
+
+### 2026-09-09 — Milestone 9, часть 3: ReportDialog (ViewModel + XAML + MainWindow integration)
+
+**План:** создать WPF-диалог для выбора samples и экспорта отчёта, интегрировать в MainWindow.
+
+**Сделано:**
+- **RelayCommand** (`src/MiniCds.Wpf/Infrastructure/RelayCommand.cs`) — синхронная реализация `ICommand`
+  для OK/Cancel кнопок (в отличие от `AsyncRelayCommand`, не требует async-делегата).
+- **ReportDialogViewModel** (`src/MiniCds.Wpf/ViewModels/ReportDialogViewModel.cs`):
+  - `InitializeAsync()` — загрузка samples из `ISampleRepository.GetAllAsync()` при открытии диалога.
+  - `OkCommand` — закрывает диалог с `DialogResult=true` (только если выбран хотя бы один sample).
+  - `CancelCommand` — закрывает диалог с `DialogResult=false`.
+  - `GetSelectedSampleIds()` — возвращает Id выбранных samples.
+  - `Action<bool> closeDialog` callback — viewModel не знает о WPF Window, только вызывает callback.
+  - `SampleSelectionItem` — wrapper для Sample с `IsSelected` и `DisplayName`.
+- **ReportDialog** (`src/MiniCds.Wpf/Views/ReportDialog.xaml` + `.xaml.cs`):
+  - XAML: TextBox для Report Title, ListBox с CheckBox для выбора samples, индикатор загрузки,
+    счётчик выбранных samples, кнопки OK/Cancel.
+  - code-behind: создаёт ViewModel с `closeDialog` callback (`DialogResult = result; Close();`),
+    вызывает `InitializeAsync()` в `Loaded` event.
+  - Публичные свойства `GetSelectedSampleIds()` и `ReportTitle` для доступа из MainWindow.
+- **MainWindow** (`src/MiniCds.Wpf/MainWindow.xaml` + `.xaml.cs`):
+  - Меню `File > Export Report...` + `File > Exit`.
+  - `OnExportReportClick` — открывает ReportDialog, при OK вызывает `IReportService.GenerateReportAsync`
+    с `actorUserId`, показывает результат (успех/ошибка) через MessageBox.
+  - Конструктор принимает `IServiceProvider`, `IReportService`, `long actorUserId`.
+- **App.xaml.cs:**
+  - Регистрация `ReportDialog` в DI (Transient).
+  - `actorUserId` передаётся из `loginWindow.AuthResult.UserId` в `MainWindow` через
+    `ActivatorUtilities.CreateInstance`.
+  - `ShutdownMode="OnExplicitShutdown"` в App.xaml — иначе приложение закрывалось при закрытии LoginWindow
+    до показа MainWindow.
+  - `mainWindow.Closed` → `Shutdown()` для корректного завершения.
+- **appsettings.json:** добавлен `Demo:Password = "demo123"` для детерминированных демо-аккаунтов.
+- **Тесты** (`tests/MiniCds.Tests/Wpf/ReportDialogViewModelTests.cs`) — 10 тестов:
+  - начальное состояние (ReportTitle по умолчанию, AvailableSamples пуст, IsLoading=false).
+  - `InitializeAsync` загружает samples из репозитория.
+  - `GetSelectedSampleIds` возвращает только выбранные.
+  - `ReportTitle` изменение → PropertyChanged.
+  - `SampleSelectionItem.IsSelected` → PropertyChanged.
+  - `SampleSelectionItem.DisplayName` = "Name (Status)".
+  - `OkCommand` с выбранными samples → закрывает диалог с `true`.
+  - `CancelCommand` → закрывает диалог с `false`.
+
+**Проблемы / ловушки:**
+1. **Путь в первой строке файла** — при создании `RelayCommand.cs` и `ReportDialog.xaml` путь попадал в содержимое
+   файла (`c:\Develop\...`), вызывая CS1525/MC3000. Решение: перезаписать файлы без пути в первой строке.
+2. **`RelayCommand.cs` в неправильной директории** — файл оказался в `MiniCds.Infrastructure` вместо
+   `MiniCds.Wpf\Infrastructure`. Решение: удалить и создать в правильном месте.
+3. **`Window.Close()` не принимает параметры** — `Action<bool> closeDialog` не мог быть связан с `Close()` напрямую.
+   Решение: лямбда `result => { DialogResult = result; Close(); }`.
+4. **`IReportService` не найден** — в `MainWindow.xaml.cs` отсутствовал `using MiniCds.Domain.Abstractions`.
+   Решение: добавить using.
+5. **`actorUserId` не передавался** — `GenerateReportAsync` требует `actorUserId`, но MainWindow его не имел.
+   Решение: передавать `UserId` из `AuthResult` через `ActivatorUtilities.CreateInstance`.
+6. **Приложение закрывалось после логина** — `ShutdownMode` по умолчанию `OnLastWindowClose`, LoginWindow
+   закрывался до показа MainWindow. Решение: `ShutdownMode="OnExplicitShutdown"` + `Shutdown()` при закрытии MainWindow.
+7. **Несовпадение пароля** — после добавления `Demo:Password` существующая БД имела старые пароли (сидер не
+   перезаписывает существующих пользователей). Решение: удалить `data/` для пересоздания БД.
+
+**Итог:** 140/140 тестов зелёные (120 + 10 Reporting + 10 ReportDialogViewModel). ReportDialog работает в приложении:
+логин → MainWindow → File > Export Report → выбор samples → OK → CSV-отчёт. **Осталось в Milestone 9:**
+PdfReportExporter (QuestPDF). **Далее:** SignatureDialog (Milestone 10), интеграция LiveChart в MainWindow,
+PeaksView, AuditView, MQTT end-to-end, README.

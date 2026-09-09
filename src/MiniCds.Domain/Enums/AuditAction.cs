@@ -17,5 +17,6 @@ public enum AuditAction
     Login,
     FailedLogin,
     SampleStatusChanged,
-    PeakDetected
-   }
+    PeakDetected,
+    ReportGenerated
+}

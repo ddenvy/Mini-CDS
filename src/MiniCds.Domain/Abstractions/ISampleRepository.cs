@@ -10,6 +10,7 @@ namespace MiniCds.Domain.Abstractions;
 public interface ISampleRepository
 {
     Task<Sample?> FindByIdAsync(long id, CancellationToken ct = default);
-    Task UpdateStatusAsync(long sampleId, SampleStatus newStatus, CancellationToken ct = default);
+    Task<Sample?> FindByIdWithPeaksAsync(long id, CancellationToken ct = default);
     Task<IReadOnlyList<Sample>> GetAllAsync(CancellationToken ct = default);
+    Task UpdateStatusAsync(long sampleId, SampleStatus newStatus, CancellationToken ct = default);
 }

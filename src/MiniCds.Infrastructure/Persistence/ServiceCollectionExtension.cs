@@ -8,6 +8,7 @@ using MiniCds.Application.SignalProcessing;
 using MiniCds.Domain.Abstractions;
 using MiniCds.Infrastructure.Persistence.Repositories;
 using MiniCds.Infrastructure.Security;
+using MiniCds.Infrastructure.Reporting;
 
 namespace MiniCds.Infrastructure.Persistence;
 
@@ -41,6 +42,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISignalProcessor, SignalProcessor>();
         services.AddScoped<AcquisitionService>();
         services.AddScoped<IAcquisitionService>(sp => sp.GetRequiredService<AcquisitionService>());
+        services.AddReporting();
         return services;
     }
 }

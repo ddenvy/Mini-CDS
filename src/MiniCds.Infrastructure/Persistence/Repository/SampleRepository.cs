@@ -11,6 +11,18 @@ public sealed class SampleRepository(CdsDbContext dbContext) : ISampleRepository
     public async Task<Sample?> FindByIdAsync(long id, CancellationToken ct = default)
         => await dbContext.Samples.FindAsync([id], ct);
 
+    public async Task<Sample?> FindByIdWithPeaksAsync(long id, CancellationToken ct = default)
+        => await dbContext.Samples
+            .Include(s => s.Method)
+            .Include(s => s.Peaks)
+            .FirstOrDefaultAsync(s => s.Id == id, ct);
+
+    public async Task<IReadOnlyList<Sample>> GetAllAsync(CancellationToken ct = default)
+        => await dbContext.Samples
+            .Include(s => s.Method)
+            .OrderByDescending(s => s.CreatedAtUtc)
+            .ToListAsync(ct);
+
     public async Task UpdateStatusAsync(long sampleId, SampleStatus newStatus, CancellationToken ct = default)
     {
         var sample = await dbContext.Samples.FindAsync([sampleId], ct)
@@ -18,7 +30,4 @@ public sealed class SampleRepository(CdsDbContext dbContext) : ISampleRepository
         sample.Status = newStatus;
         await dbContext.SaveChangesAsync(ct);
     }
-
-    public async Task<IReadOnlyList<Sample>> GetAllAsync(CancellationToken ct = default)
-        => await dbContext.Samples.AsNoTracking().ToListAsync(ct);
 }
