@@ -16,18 +16,30 @@ public sealed class ReportDialogViewModel : INotifyPropertyChanged
     private string _reportTitle = "Chromatography Report";
     private string _selectedFormat = "CSV";
     private bool _isLoading;
+    private int _selectedCount;
 
     public ReportDialogViewModel(ISampleRepository sampleRepository, Action<bool> closeDialog)
     {
         _sampleRepository = sampleRepository;
         _closeDialog = closeDialog;
-        OkCommand = new RelayCommand(ExecuteOk, () => !IsLoading && AvailableSamples.Any(s => s.IsSelected));
+        OkCommand = new RelayCommand(ExecuteOk, () => !IsLoading && SelectedCount > 0);
         CancelCommand = new RelayCommand(() => _closeDialog(false));
     }
 
     public ObservableCollection<SampleSelectionItem> AvailableSamples { get; } = new();
 
     public IReadOnlyList<string> AvailableFormats { get; } = new[] { "CSV", "PDF" };
+
+    public int SelectedCount
+    {
+        get => _selectedCount;
+        private set
+        {
+            if (_selectedCount == value) return;
+            _selectedCount = value;
+            OnPropertyChanged();
+        }
+    }
 
     public string ReportTitle
     {
@@ -59,6 +71,7 @@ public sealed class ReportDialogViewModel : INotifyPropertyChanged
             if (_isLoading == value) return;
             _isLoading = value;
             OnPropertyChanged();
+            RaiseOkCanExecuteChanged();
         }
     }
 
@@ -82,12 +95,37 @@ public sealed class ReportDialogViewModel : INotifyPropertyChanged
             AvailableSamples.Clear();
             foreach (var sample in samples)
             {
-                AvailableSamples.Add(new SampleSelectionItem(sample));
+                var item = new SampleSelectionItem(sample);
+                item.PropertyChanged += OnSampleItemPropertyChanged;
+                AvailableSamples.Add(item);
             }
+            UpdateSelectedCount();
         }
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    private void OnSampleItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SampleSelectionItem.IsSelected))
+        {
+            UpdateSelectedCount();
+            RaiseOkCanExecuteChanged();
+        }
+    }
+
+    private void UpdateSelectedCount()
+    {
+        SelectedCount = AvailableSamples.Count(s => s.IsSelected);
+    }
+
+    private void RaiseOkCanExecuteChanged()
+    {
+        if (OkCommand is RelayCommand relay)
+        {
+            relay.RaiseCanExecuteChanged();
         }
     }
 

@@ -60,7 +60,7 @@
         </GroupBox>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
-            <TextBlock Text="{Binding AvailableSamples.Count, StringFormat='Selected: {0} samples'}"
+            <TextBlock Text="{Binding SelectedCount, StringFormat='Selected: {0} samples'}"
                        VerticalAlignment="Center"
                        Margin="0,0,10,0"
                        Foreground="Gray"/>
