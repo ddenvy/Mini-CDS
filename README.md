@@ -1,70 +1,70 @@
 # Mini-CDS
 
-Минимальная хроматографическая система сбора данных (CDS) с поддержкой требований **21 CFR Part 11** и принципов **ALCOA+** к целостности данных. Реализована на .NET 10 / WPF, использует SQLite (EF Core) для хранения данных и MQTTnet для интеграции с инструментами.
+A minimal chromatography data system (CDS) with **21 CFR Part 11** and **ALCOA+** data integrity support. Built on .NET 10 / WPF, using SQLite (EF Core) for storage and MQTTnet for instrument integration.
 
-> Учебный/демонстрационный проект для лабораторного контекста. Не является сертифицированным ПО для регулируемого использования.
-
----
-
-## Возможности
-
-- **Acquisition в реальном времени** — потоковая обработка сигнала с инструмента (симулятор или MQTT).
-- **Обработка сигнала** — базовая коррекция, сглаживание (Savitzky-Golay, Moving Average), детекция пиков и расчёт метрик (RT, Height, Area, FWHM, Plates, Tailing).
-- **Live Chart** — отображение хроматограммы и таблицы детектированных пиков в реальном времени.
-- **Electronic Signature (21 CFR Part 11 §11.50, §11.200)** — подписание действий (void sample) с проверкой имени пользователя и пароля, сохранением смысла подписи и причины.
-- **Audit Trail (21 CFR Part 11 §11.10(e))** — неизменяемый журнал всех действий пользователей с hash-chain для проверки целостности.
-- **Append-Only БД** — триггеры SQLite, запрещающие UPDATE/DELETE в критических таблицах.
-- **Отчёты** — экспорт результатов в CSV и PDF (QuestPDF).
-- **Аутентификация** — Argon2id хеширование паролей, сессии.
-- **MQTT интеграция** — приём сигнала от внешнего инструмента через MQTT-брокер.
+> Educational / demonstration project for a laboratory context. Not certified software for regulated use.
 
 ---
 
-## Технологии
+## Features
 
-| Слой | Технологии |
-|------|------------|
+- **Real-time acquisition** — streaming signal processing from an instrument (simulator or MQTT).
+- **Signal processing** — baseline correction, smoothing (Savitzky-Golay, Moving Average), peak detection, and metric calculation (RT, Height, Area, FWHM, Plates, Tailing).
+- **Live Chart** — real-time chromatogram display and detected peaks table.
+- **Electronic Signature (21 CFR Part 11 §11.50, §11.200)** — signing actions (e.g. void sample) with username/password verification, signature meaning, and reason.
+- **Audit Trail (21 CFR Part 11 §11.10(e))** — immutable log of all user actions with hash-chain integrity verification.
+- **Append-Only DB** — SQLite triggers preventing UPDATE/DELETE on critical tables.
+- **Reporting** — export results to CSV and PDF (QuestPDF).
+- **Authentication** — Argon2id password hashing, sessions.
+- **MQTT integration** — receive signal from an external instrument via an MQTT broker.
+
+---
+
+## Tech Stack
+
+| Layer | Technologies |
+|-------|--------------|
 | UI | WPF (.NET 10), MVVM |
 | Domain / Application | .NET 10, C# |
 | ORM | EF Core 10, SQLite |
 | MQTT | MQTTnet 4.3.6 |
 | PDF | QuestPDF 2024.12 |
-| Тесты | xUnit, NSubstitute, FluentAssertions |
-| Логирование | Serilog |
+| Testing | xUnit, NSubstitute, FluentAssertions |
+| Logging | Serilog |
 
 ---
 
-## Архитектура
+## Architecture
 
-Проект следует **Clean Architecture** с разделением на слои:
+The project follows **Clean Architecture** with separated layers:
 
 ```
-MiniCds.Domain          — сущности, перечисления, value-объекты, интерфейсы (абстракции)
-MiniCds.Application     — бизнес-логика (acquisition, audit, auth, signal processing)
-MiniCds.Infrastructure  — реализация абстракций (EF Core, MQTT, reporting, security)
-MiniCds.Wpf             — представление (MVVM, Views, ViewModels)
+MiniCds.Domain          — entities, enums, value objects, interfaces (abstractions)
+MiniCds.Application     — business logic (acquisition, audit, auth, signal processing)
+MiniCds.Infrastructure  — abstraction implementations (EF Core, MQTT, reporting, security)
+MiniCds.Wpf             — presentation (MVVM, Views, ViewModels)
 ```
 
-### Поток данных acquisition
+### Acquisition data flow
 
 ```
 IInstrumentSource (Simulator/MQTT)
     → SignalFrame (t, v)
     → IAcquisitionService
-    → IRawSignalRepository (сырые данные)
+    → IRawSignalRepository (raw data)
     → ISignalProcessor (baseline, filter, peak detection)
-    → IPeakRepository (метрики пиков)
+    → IPeakRepository (peak metrics)
     → LiveChartViewModel (UI)
 ```
 
 ---
 
-## Структура проекта
+## Project Structure
 
 ```
 src/
 ├── MiniCds.Domain/
-│   ├── Abstractions/        # интерфейсы (IAcquisitionService, IAuditTrail, IInstrumentSource, ...)
+│   ├── Abstractions/        # interfaces (IAcquisitionService, IAuditTrail, IInstrumentSource, ...)
 │   ├── Entities/            # AuditEntry, ElectronicSignature, Sample, Peak, ...
 │   ├── Enums/               # SampleStatus, AuditAction, SignatureMeaning, ...
 │   └── ValueObjects/        # SignalFrame, PeakMetrics, ProcessingParameters
@@ -75,7 +75,7 @@ src/
 │   └── SignalProcessing/    # BaselineCorrector, Filters, PeakDetector, SignalProcessor
 ├── MiniCds.Infrastructure/
 │   ├── Instruments/         # SimulatorInstrumentSource, MqttInstrumentSource
-│   ├── Persistence/         # EF Core, репозитории, AuditTrail, AppendOnlyInterceptor
+│   ├── Persistence/         # EF Core, repositories, AuditTrail, AppendOnlyInterceptor
 │   ├── Reporting/           # CsvReportExporter, PdfReportExporter, ReportService
 │   └── Security/            # PasswordHasher (Argon2id)
 └── MiniCds.Wpf/
@@ -83,39 +83,39 @@ src/
     ├── ViewModels/          # Login, LiveChart, ReportDialog, SignatureDialog
     └── Infrastructure/      # RelayCommand, AsyncRelayCommand
 tools/
-└── mqtt-publisher/          # Python publisher для тестирования MQTT
-tests/MiniCds.Tests/         # xUnit тесты
+└── mqtt-publisher/          # Python publisher for MQTT testing
+tests/MiniCds.Tests/         # xUnit tests
 ```
 
 ---
 
-## Быстрый старт
+## Quick Start
 
-### Требования
+### Requirements
 
 - .NET 10 SDK
 - Windows (WPF)
-- (опционально) MQTT-брокер (mosquitto) и Python 3.8+ для работы с MQTT
+- (optional) MQTT broker (mosquitto) and Python 3.8+ for MQTT mode
 
-### Сборка и запуск
+### Build & Run
 
 ```bash
 dotnet build
 dotnet run --project src/MiniCds.Wpf
 ```
 
-### Учётные данные
+### Credentials
 
-По умолчанию создаётся демо-пользователь:
+A demo user is created by default:
 
-| Поле | Значение |
-|------|----------|
-| Логин | `admin` |
-| Пароль | `demo123` |
+| Field | Value |
+|-------|-------|
+| Login | `admin` |
+| Password | `demo123` |
 
-Пароль задаётся в `appsettings.json` (`Demo:Password`). Если пароль был изменён, удалите папку `data/` для пересоздания БД.
+The password is set in `appsettings.json` (`Demo:Password`). If the password was changed, delete the `data/` folder to recreate the DB.
 
-### Запуск тестов
+### Run Tests
 
 ```bash
 dotnet test
@@ -123,7 +123,7 @@ dotnet test
 
 ---
 
-## Конфигурация
+## Configuration
 
 `src/MiniCds.Wpf/appsettings.json`:
 
@@ -146,38 +146,38 @@ dotnet test
 }
 ```
 
-### Режимы инструмента
+### Instrument Modes
 
-- **Simulator** (по умолчанию) — генерация гауссовых пиков с шумом и дрейфом базовой линии.
-- **Mqtt** — приём сигнала от внешнего источника через MQTT-брокер.
+- **Simulator** (default) — generates Gaussian peaks with noise and baseline drift.
+- **Mqtt** — receives signal from an external source via an MQTT broker.
 
 ---
 
-## MQTT интеграция
+## MQTT Integration
 
-### Топик
+### Topic
 
 ```
 instrument/{deviceId}/signal
 ```
 
-### Форматы сообщений (JSON)
+### Message Formats (JSON)
 
-**Одна точка:**
+**Single point:**
 ```json
 {"t": 12.34, "v": 0.567}
 ```
 
-**Пакет точек:**
+**Batch of points:**
 ```json
 {"rate": 10, "t0": 0.0, "v": [0.11, 0.12, 0.14, ...]}
 ```
 
 QoS — At Least Once (1), retain — false.
 
-### Python publisher
+### Python Publisher
 
-Инструмент для эмуляции хроматографа:
+A chromatograph emulation tool:
 
 ```bash
 cd tools/mqtt-publisher
@@ -185,34 +185,34 @@ pip install -r requirements.txt
 python publish_chromatogram.py --broker localhost --port 1883 --device device-001
 ```
 
-Опции: `--mode batch|single`, `--duration`, `--rate`, `--noise`, `--slope`, `--batch-size`.
+Options: `--mode batch|single`, `--duration`, `--rate`, `--noise`, `--slope`, `--batch-size`.
 
 ---
 
-## Соответствие нормативам
+## Regulatory Compliance
 
 ### 21 CFR Part 11
 
-| Требование | Реализация |
-|------------|------------|
-| §11.10(d) Ограниченный доступ | Аутентификация (Argon2id), роли |
-| §11.10(e) Audit trail | `IAuditTrail`, неизменяемый журнал, hash-chain |
-| §11.10(g) Authority checks | Роли пользователей (Admin, Analyst) |
-| §11.10(k) Append-only | Триггеры SQLite (нет UPDATE/DELETE) |
-| §11.50 Электронные подписи | `ISignatureService`, проверка учётных данных |
-| §11.200 Компоненты подписи | Username + Password + Meaning + Reason |
+| Requirement | Implementation |
+|-------------|----------------|
+| §11.10(d) Limited system access | Authentication (Argon2id), roles |
+| §11.10(e) Audit trail | `IAuditTrail`, immutable log, hash-chain |
+| §11.10(g) Authority checks | User roles (Admin, Analyst) |
+| §11.10(k) Append-only | SQLite triggers (no UPDATE/DELETE) |
+| §11.50 Electronic signatures | `ISignatureService`, credential verification |
+| §11.200 Signature components | Username + Password + Meaning + Reason |
 
 ### ALCOA+
 
-- **Attributable** — все действия привязаны к пользователю (actorUserId).
-- **Legible** — читаемые записи в БД и отчётах.
-- **Contemporaneous** — временные метки (TimestampUtc) на каждое событие.
-- **Original** — append-only, нет изменений после записи.
-- **Accurate** — проверка целостности hash-chain.
-- **Complete, Consistent, Enduring, Available** — SQLite, резервные копии.
+- **Attributable** — every action is linked to a user (actorUserId).
+- **Legible** — readable records in the DB and reports.
+- **Contemporaneous** — timestamps (TimestampUtc) on every event.
+- **Original** — append-only, no modifications after recording.
+- **Accurate** — hash-chain integrity verification.
+- **Complete, Consistent, Enduring, Available** — SQLite, backups.
 
 ---
 
-## Лицензия
+## License
 
-Учебный проект. QuestPDF используется под Community-лицензией.
+Educational project. QuestPDF is used under the Community license.
