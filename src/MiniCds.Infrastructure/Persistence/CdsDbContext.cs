@@ -13,6 +13,11 @@ public class CdsDbContext(DbContextOptions<CdsDbContext> options) : DbContext(op
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<ElectronicSignature> ElectronicSignatures => Set<ElectronicSignature>();
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.AddInterceptors(new AppendOnlyInterceptor());
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CdsDbContext).Assembly);

@@ -80,7 +80,29 @@ public class AuditTrailTests : IDisposable
     }
 
     [Fact]
-    public async Task VerifyChain_DetectsRawSqlHashTamper()
+    public async Task RawUpdateOnAuditEntry_IsBlockedByTrigger()
+    {
+        long userId = await SeedUserAsync();
+        using (var db = CreateContext())
+        {
+            var trail = new AuditTrail(db, new HashChain());
+            await trail.AppendAsync(AuditAction.Login, "User", userId, null, null, null, userId);
+        }
+
+        // Level 2 defense: the append-only trigger rejects any modification at the DB layer,
+        // bypassing EF entirely — even a raw UPDATE fails.
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "UPDATE audit_entries SET Hash = @h WHERE Id = 1";
+        cmd.Parameters.AddWithValue("@h", new string('f', 64));
+
+        var act = () => cmd.ExecuteNonQuery();
+
+        act.Should().Throw<Microsoft.Data.Sqlite.SqliteException>()
+            .WithMessage("*append-only*");
+    }
+
+    [Fact]
+    public async Task VerifyChain_DetectsForgedAppend()
     {
         long userId = await SeedUserAsync();
         using (var db = CreateContext())
@@ -90,12 +112,14 @@ public class AuditTrailTests : IDisposable
             await trail.AppendAsync(AuditAction.Sign, "Method", 1, "sign", null, null, userId);
         }
 
-        // Attacker edits the first entry's hash directly in the DB
-        // (append-only triggers are not in place yet — this simulates a sophisticated attacker).
+        // Level 3 defense: an attacker CAN append a new row (triggers only block UPDATE/DELETE),
+        // but a forged entry with a broken chain link is caught by the hash-chain recompute.
         using (var cmd = _connection.CreateCommand())
         {
-            cmd.CommandText = "UPDATE audit_entries SET Hash = @h WHERE Id = 1";
-            cmd.Parameters.AddWithValue("@h", new string('f', 64));
+            cmd.CommandText = @"
+INSERT INTO audit_entries (Id, TimestampUtc, ActorUserId, Action, EntityType, EntityId, PrevHash, Hash)
+VALUES (3, '2026-09-09T00:00:00.0000000Z', @u, 'Login', 'User', @u, 'FORGED', 'FORGED');";
+            cmd.Parameters.AddWithValue("@u", userId);
             cmd.ExecuteNonQuery();
         }
 

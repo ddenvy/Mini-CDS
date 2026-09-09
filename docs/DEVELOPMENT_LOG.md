@@ -36,7 +36,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 2 | Domain entities & enums (User, AuditEntry, ElectronicSignature) | ✅ Закрыт |
 | 3 | DSP pipeline: MA → SG → ALS → PeakDetector → SignalProcessor | ✅ Закрыт (26/26 tests) |
 | 4 | Persistence: CdsDbContext, EF configurations, SQLite migration, Persistence tests | ✅ Закрыт (3/3 tests) |
-| 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | 🟡 В работе: HashChain ✅, AuditTrail ✅ 7/7 |
+| 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ⚪ Запланирован |
 | 7 | WPF host + DI, LoginWindow, AuditView | ⚪ Запланирован |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
@@ -298,6 +298,39 @@ SQLite-триггеры (после них tamper-тест через сырой
 
 ---
 
+### 2026-09-09 — Milestone 5, часть 3: Append-only защита в 3 уровня
+
+**План:** достроить защиту неизменяемости журнала: EF-интерцептор (уровень 1) + SQLite-
+триггеры (уровень 2), замкнув связку с hash-chain (уровень 3). Разделить tamper-тест на два
+вектора атаки.
+
+**Сделано:**
+- `AppendOnlyInterceptor : SaveChangesInterceptor` — `SavingChanges` + `SavingChangesAsync`
+  отклоняют `Modified`/`Deleted` для `AuditEntry`/`ElectronicSignature` (но не `Added`).
+- Регистрация в `CdsDbContext.OnConfiguring` — действует во всех путях (тесты, design-time, DI).
+- Миграция `AddAppendOnlyTriggers` — 4 триггера `BEFORE UPDATE/DELETE ... RAISE(ABORT)` на
+  `audit_entries` и `electronic_signatures`; `Down` — `DROP TRIGGER IF EXISTS`.
+- Tamper-тест разделён на два:
+  - `RawUpdateOnAuditEntry_IsBlockedByTrigger` — уровень 2: сырой UPDATE отклоняет СУБД.
+  - `VerifyChain_DetectsForgedAppend` — уровень 3: фиктивный INSERT проходит (append разрешён),
+    но рвёт цепочку → `VerifyChain == false`.
+
+**Проблемы / ловушки:**
+1. **EF создал пустой каркас миграции** (`No changes were detected`) — триггеры не являются
+   изменением модели. Это ожидаемо: блоки `migrationBuilder.Sql(...)` вписаны вручную.
+2. **Имена таблиц в триггерах** — план предписывал `AuditTrail`, реальное имя `audit_entries`
+   (из `ToTable`). Ошибка в плане, триггер на несуществующую таблицу упал бы при Migrate().
+3. **Двойная регистрация интерцептора** — потенциальная ловушка на будущем DI-этапе:
+   раз добавлен в `OnConfiguring`, в `AddDbContext(...AddInterceptors)` его класть НЕЛЬЗЯ.
+4. **Смысловой сдвиг tamper-теста** — раньше он доказывал detection, теперь detection делится
+   между двумя механизмами. Это не регресс, а уточнение модели угрозы.
+
+**Итог:** 8/8 Persistence, полный прогон **46/46** (26 SignalProcessing + 8 HashChain +
+8 Persistence + 4 TestSignalGenerator). Milestone 5 закрыт. Далее — AuditService (Application)
++ PasswordHasher (PBKDF2, Infrastructure), затем WPF-хост с DI.
+
+---
+
 ## Архитектурные решения, зафиксированные навсегда
 
 | Решение | Обоснование |
@@ -310,6 +343,8 @@ SQLite-триггеры (после них tamper-тест через сырой
 | Собственный O(n) banded LDLᵀ вместо MathNet | MathNet 5.0 не имеет managed sparse solve; DOD-style |
 | Pre-test миграций (`Migrate()`, не `EnsureCreated()`) | Проверяет корректность самих миграций, а не только модели |
 | `IDesignTimeDbContextFactory` | Канонический паттерн для библиотечных проектов без DI |
+| Append-only в 3 слоя (интерцептор + триггеры + hash-chain) | Каждый слой ловит свой вектор; вместе — «изменить нельзя, подделку видно» |
+| `AppendOnlyInterceptor` только в `OnConfiguring` | Гарантия защиты во всех путях; запрет дублирования в DI |
 
 ## Известные технические долги
 
