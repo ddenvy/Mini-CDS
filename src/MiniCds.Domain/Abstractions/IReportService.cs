@@ -15,6 +15,8 @@ public interface IReportService
     /// <param name="title">Report title.</param>
     /// <param name="format">Export format (e.g., "CSV").</param>
     /// <param name="actorUserId">User generating the report.</param>
+    /// <param name="outputDirectory">Directory to save the report file into.
+    /// When null, defaults to the "Reports" folder next to the executable.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Generated report entity.</returns>
     Task<Report> GenerateReportAsync(
@@ -22,5 +24,6 @@ public interface IReportService
         string title,
         string format,
         long actorUserId,
+        string? outputDirectory = null,
         CancellationToken ct = default);
 }

@@ -30,6 +30,7 @@ public sealed class ReportService : IReportService
         string title,
         string format,
         long actorUserId,
+        string? outputDirectory = null,
         CancellationToken ct = default)
     {
         if (!_exporters.TryGetValue(format, out var exporter))
@@ -56,8 +57,9 @@ public sealed class ReportService : IReportService
         report.Id = reportId;
 
         var extension = format.Equals("PDF", StringComparison.OrdinalIgnoreCase) ? "pdf" : "csv";
-        var outputPath = Path.Combine("Reports", $"{reportId}.{extension}");
-        Directory.CreateDirectory("Reports");
+        var directory = string.IsNullOrWhiteSpace(outputDirectory) ? "Reports" : outputDirectory;
+        var outputPath = Path.Combine(directory, $"{reportId}.{extension}");
+        Directory.CreateDirectory(directory);
         await exporter.ExportAsync(samples, outputPath, ct);
 
         report.FilePath = outputPath;
