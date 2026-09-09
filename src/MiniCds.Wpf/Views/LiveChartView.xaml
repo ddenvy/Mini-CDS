@@ -7,7 +7,7 @@
              xmlns:views="clr-namespace:MiniCds.Wpf.Views"
              xmlns:viewModels="clr-namespace:MiniCds.Wpf.ViewModels"
              mc:Ignorable="d"
-             d:DesignHeight="700" d:DesignWidth="1000">
+             d:DesignHeight="800" d:DesignWidth="1000">
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -48,23 +48,23 @@
 
         <!-- Chromatogram Canvas -->
         <GroupBox Grid.Row="1" Header="Chromatogram">
-            <Grid>
-                <Canvas x:Name="ChromatogramCanvas" 
-                        Background="White"
-                        ClipToBounds="True"/>
-                
+            <Canvas x:Name="ChromatogramCanvas" 
+                    Background="White"
+                    ClipToBounds="True"
+                    Width="950" Height="580">
                 <!-- Axes -->
                 <Line X1="50" Y1="50" X2="50" Y2="550" Stroke="Black" StrokeThickness="2"/>
                 <Line X1="50" Y1="550" X2="950" Y2="550" Stroke="Black" StrokeThickness="2"/>
                 
                 <!-- Axis Labels -->
-                <TextBlock Text="Time (s)" Canvas.Left="450" Canvas.Top="560" FontSize="12"/>
-                <TextBlock Text="Intensity" Canvas.Left="10" Canvas.Top="280" FontSize="12">
+                <TextBlock Text="Time (s)" Canvas.Left="450" Canvas.Top="555" FontSize="12"/>
+                <TextBlock Text="Intensity" Canvas.Left="15" Canvas.Top="280" FontSize="12"
+                           RenderTransformOrigin="0.5,0.5">
                     <TextBlock.RenderTransform>
                         <RotateTransform Angle="-90"/>
                     </TextBlock.RenderTransform>
                 </TextBlock>
-            </Grid>
+            </Canvas>
         </GroupBox>
 
         <!-- Status Panel -->
