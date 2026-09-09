@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPeakRepository, PeakRepository>();
         services.AddScoped<ISignalProcessor, SignalProcessor>();
         services.AddScoped<AcquisitionService>();
+        services.AddScoped<IAcquisitionService>(sp => sp.GetRequiredService<AcquisitionService>());
         return services;
     }
 }

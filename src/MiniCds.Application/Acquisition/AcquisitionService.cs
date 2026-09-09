@@ -11,7 +11,7 @@ namespace MiniCds.Application.Acquisition;
 /// buffers SignalFrame data, applies DSP pipeline, persists RawSignal + Peak entities,
 /// manages Sample lifecycle (Queued → Running → Completed), and audits all actions.
 /// </summary>
-public sealed class AcquisitionService
+public sealed class AcquisitionService : IAcquisitionService
 {
     private readonly ISampleRepository _sampleRepository;
     private readonly IMethodRepository _methodRepository;

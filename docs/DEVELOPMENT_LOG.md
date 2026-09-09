@@ -39,7 +39,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
 | 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | ✅ Закрыт (94/94 tests) |
-| 8 | Sample/Method entities, AcquisitionService, LiveChart | 🔶 В процессе (109/109 tests) |
+| 8 | Sample/Method entities, AcquisitionService, LiveChart | ✅ Закрыт (120/120 tests) |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
 
 ---
@@ -710,3 +710,52 @@ LoginWindow (WPF, окно из scope, AuthResult → смена окна на �
 
 **Итог:** 109/109 тестов зелёные. AcquisitionService работает корректно. Следующий шаг — LiveChart
 (WPF, real-time visualization) для завершения Milestone 8.
+
+---
+
+### 2026-09-09 — Milestone 8, часть 3: LiveChart (WPF real-time visualization)
+
+**План:** реализовать WPF-компонент для визуализации хроматограммы в реальном времени с подпиской на
+события AcquisitionService, отображением пиков и управлением acquisition.
+
+**Сделано:**
+- **LiveChartViewModel** (`src/MiniCds.Wpf/ViewModels/LiveChartViewModel.cs`):
+  - `ObservableCollection<SignalFrame>` для real-time обновления графика.
+  - Подписка на `AcquisitionService.FrameProcessed` и `PeaksDetected`.
+  - Команды `StartAcquisitionCommand`, `StopAcquisitionCommand`, `LoadSamplesCommand`.
+  - Свойства: `IsAcquiring`, `CurrentSampleName`, `PeakCount`, `SelectedSample`.
+  - `Dispatcher.Invoke` для обновления UI из background thread.
+- **LiveChartView** (`src/MiniCds.Wpf/Views/LiveChartView.xaml` + `.xaml.cs`):
+  - WPF Canvas для рисования хроматограммы (Polyline).
+  - Отображение detected peaks как вертикальные красные линии.
+  - Control panel: ComboBox для выбора Sample, кнопки Start/Stop.
+  - Status panel: текущий sample, статус acquiring/idle, количество пиков.
+  - Автомасштабирование графика по данным.
+- **BoolToStringConverter** (`src/MiniCds.Wpf/Converters/BoolToStringConverter.cs`):
+  - Конвертация `bool` → "Acquiring"/"Idle" для отображения статуса.
+- **IAcquisitionService** (`src/MiniCds.Domain/Abstractions/IAcquisitionService.cs`):
+  - Интерфейс извлечён из `AcquisitionService` для тестируемости.
+  - `AcquisitionService` реализует `IAcquisitionService`.
+- **ISampleRepository.GetAllAsync** — добавлен метод для загрузки списка samples в ComboBox.
+- **DI registration**: `IAcquisitionService → AcquisitionService` (Scoped).
+- **Тесты** (`tests/MiniCds.Tests/Wpf/LiveChartViewModelTests.cs`):
+  - 11 тестов: начальное состояние, CanExecute-логика команд, empty collections, PropertyChanged,
+    sample selection.
+
+**Проблемы / ловушки:**
+1. **NSubstitute не может мокать sealed класс** — `AcquisitionService` был `sealed class`, NSubstitute
+   не может создать прокси. Решение: извлечь `IAcquisitionService` интерфейс, регистрировать в DI как
+   `IAcquisitionService → sp.GetRequiredService<AcquisitionService>()` (forwarding registration).
+   Правило: все сервисы Application-слоя должны иметь интерфейсы для тестируемости.
+2. **Application.Current namespace conflict** — в `LiveChartViewModel.cs` `Application.Current` разрешался
+   в `MiniCds.Application` (слой), а не `System.Windows.Application`. Решение: полная квалификация
+   `System.Windows.Application.Current.Dispatcher.Invoke`.
+3. **AsyncRelayCommand constructor** — `LoadSamplesCommand` инициализирован без `canExecute` параметра,
+   но конструктор требует `Func<bool>`. Решение: добавить `() => true` как всегда-разрешённый guard.
+4. **LiveChartView.xaml.cs PeaksDetected property** — код ссылался на `viewModel.PeaksDetected`, но
+   свойство называется `DetectedPeaks`. Решение: исправить имя свойства.
+5. **ISampleRepository.GetAllAsync missing** — ViewModel вызывала `GetAllAsync()`, но метод отсутствовал
+   в интерфейсе. Решение: добавить метод в `ISampleRepository` и реализовать в `SampleRepository`.
+
+**Итог:** 120/120 тестов зелёные (109 + 11 LiveChartViewModelTests). Milestone 8 полностью закрыт.
+Следующий milestone — ReportService + CSV export (Milestone 9).

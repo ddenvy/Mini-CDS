@@ -18,4 +18,7 @@ public sealed class SampleRepository(CdsDbContext dbContext) : ISampleRepository
         sample.Status = newStatus;
         await dbContext.SaveChangesAsync(ct);
     }
+
+    public async Task<IReadOnlyList<Sample>> GetAllAsync(CancellationToken ct = default)
+        => await dbContext.Samples.AsNoTracking().ToListAsync(ct);
 }

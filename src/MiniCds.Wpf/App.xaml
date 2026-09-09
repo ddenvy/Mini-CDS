@@ -1,8 +1,9 @@
 ﻿<Application x:Class="MiniCds.Wpf.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:MiniCds.Wpf">
+             xmlns:local="clr-namespace:MiniCds.Wpf"
+             xmlns:converters="clr-namespace:MiniCds.Wpf.Converters">
     <Application.Resources>
-         
+        <converters:BoolToStringConverter x:Key="BoolToStringConverter"/>
     </Application.Resources>
 </Application>
