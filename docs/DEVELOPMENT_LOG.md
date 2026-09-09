@@ -928,3 +928,24 @@ PeaksView, AuditView, MQTT end-to-end, README.
 **Итог:** 140/140 тестов зелёные, 0 предупреждений. Milestone 9 полностью закрыт (CSV + PDF экспорт).
 **Далее:** SignatureDialog (Milestone 10), интеграция LiveChart в MainWindow, PeaksView, AuditView,
 MQTT end-to-end, README.
+
+---
+
+### 2026-09-09 — Интеграция LiveChart в MainWindow
+
+**План:** встроить существующий `LiveChartView` в главное окно приложения.
+
+**Сделано:**
+- **DI:** зарегистрирован `IInstrumentSource → SimulatorInstrumentSource` в `AddMiniCdsPersistence`
+  с дефолтными параметрами симулятора (4 пика, 60 сек, шум, baseline slope).
+- **MainWindow.xaml:**
+  - Добавлен `xmlns:views="clr-namespace:MiniCds.Wpf.Views"`.
+  - Плейсхолдер `TextBlock` заменён на `<views:LiveChartView x:Name="LiveChartControl"/>`.
+  - Размер окна увеличен до 1100×700.
+- **MainWindow.xaml.cs:**
+  - В конструкторе создаётся `LiveChartViewModel` через `ActivatorUtilities.CreateInstance(_serviceProvider, _actorUserId)`.
+  - ViewModel устанавливается как `DataContext` для `LiveChartControl`.
+
+**Итог:** 140/140 тестов зелёные. Теперь в главном окне доступен LiveChart с управлением acquизицией,
+графиком сигнала и детектированными пиками. **Далее:** SignatureDialog (Milestone 10), PeaksView, AuditView,
+MQTT end-to-end, README.

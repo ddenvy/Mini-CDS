@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using MiniCds.Application.Reporting;
 using MiniCds.Domain.Abstractions;
+using MiniCds.Wpf.ViewModels;
 using MiniCds.Wpf.Views;
 
 namespace MiniCds.Wpf;
@@ -18,6 +19,10 @@ public partial class MainWindow : Window
         _serviceProvider = serviceProvider;
         _reportService = reportService;
         _actorUserId = actorUserId;
+
+        var viewModel = ActivatorUtilities.CreateInstance<LiveChartViewModel>(
+            _serviceProvider, _actorUserId);
+        LiveChartControl.DataContext = viewModel;
     }
 
     private async void OnExportReportClick(object sender, RoutedEventArgs e)

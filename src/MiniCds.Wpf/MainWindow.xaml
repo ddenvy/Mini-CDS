@@ -4,8 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MiniCds.Wpf"
+        xmlns:views="clr-namespace:MiniCds.Wpf.Views"
         mc:Ignorable="d"
-        Title="Mini-CDS" Height="600" Width="1000"
+        Title="Mini-CDS" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen">
     <DockPanel>
         <Menu DockPanel.Dock="Top">
@@ -15,13 +16,7 @@
                 <MenuItem Header="E_xit" Click="OnExitClick"/>
             </MenuItem>
         </Menu>
-        
-        <Grid>
-            <TextBlock Text="Mini-CDS - Chromatography Data System"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       FontSize="24"
-                       Foreground="Gray"/>
-        </Grid>
+
+        <views:LiveChartView x:Name="LiveChartControl"/>
     </DockPanel>
 </Window>

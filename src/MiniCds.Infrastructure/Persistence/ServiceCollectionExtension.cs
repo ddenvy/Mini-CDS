@@ -6,6 +6,7 @@ using MiniCds.Application.Audit;
 using MiniCds.Application.Auth;
 using MiniCds.Application.SignalProcessing;
 using MiniCds.Domain.Abstractions;
+using MiniCds.Infrastructure.Instruments;
 using MiniCds.Infrastructure.Persistence.Repositories;
 using MiniCds.Infrastructure.Security;
 using MiniCds.Infrastructure.Reporting;
@@ -42,6 +43,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISignalProcessor, SignalProcessor>();
         services.AddScoped<AcquisitionService>();
         services.AddScoped<IAcquisitionService>(sp => sp.GetRequiredService<AcquisitionService>());
+        services.AddScoped<IInstrumentSource>(_ => new SimulatorInstrumentSource(
+            sampleRateHz: 10,
+            durationSeconds: 60,
+            peaks: new[]
+            {
+                new SimulatorPeakDefinition(100, 5.0, 0.3),
+                new SimulatorPeakDefinition(80, 12.0, 0.4),
+                new SimulatorPeakDefinition(120, 20.0, 0.5),
+                new SimulatorPeakDefinition(60, 30.0, 0.6)
+            },
+            noiseStdDev: 2.0,
+            baselineSlope: 0.1));
         services.AddReporting();
         return services;
     }
