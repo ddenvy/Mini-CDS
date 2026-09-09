@@ -15,6 +15,9 @@
                 <Separator/>
                 <MenuItem Header="E_xit" Click="OnExitClick"/>
             </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Audit Trail" Click="OnAuditTrailClick"/>
+            </MenuItem>
         </Menu>
 
         <views:LiveChartView x:Name="LiveChartControl"/>

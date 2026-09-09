@@ -1010,3 +1010,25 @@ MQTT end-to-end, README.
 
 **Итог:** 140/140 тестов зелёные. Теперь в LiveChart под графиком отображается таблица
 детектированных пиков с их метриками. **Далее:** AuditView, MQTT end-to-end, README.
+
+---
+
+### 2026-09-09 — AuditView (журнал аудита + проверка целостности)
+
+**План:** добавить окно просмотра журнала аудита с кнопкой проверки целостности hash-chain.
+
+**Сделано:**
+- **AuditWindow** (`src/MiniCds.Wpf/Views/AuditWindow.xaml` + `.xaml.cs`):
+  - Окно с `DataGrid`, отображающим записи аудита через `IAuditTrail.QueryAsync()`.
+  - Колонки: ID, Timestamp (UTC), User, Action, Entity, Entity ID, Reason, Signature.
+  - Кнопка **Refresh** — перезагрузка записей.
+  - Кнопка **Verify Integrity** — вызывает `IAuditTrail.VerifyChainAsync()`:
+    - При успехе — зелёный текст "Chain integrity: INTACT".
+    - При провале — красный текст "TAMPERED!" + MessageBox с предупреждением.
+  - Автозагрузка записей при открытии окна (`Loaded` event).
+- **MainWindow.xaml** — добавлено меню `_View > _Audit Trail`.
+- **MainWindow.xaml.cs** — `OnAuditTrailClick` открывает `AuditWindow` через DI.
+- **App.xaml.cs** — регистрация `AuditWindow` в DI (Transient).
+
+**Итог:** 140/140 тестов зелёные. Доступен просмотр журнала аудита и проверка целостности
+hash-chain (21 CFR Part 11 §11.10(e)). **Далее:** MQTT end-to-end, README.

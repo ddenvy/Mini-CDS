@@ -34,6 +34,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<LoginWindow>();
                 services.AddTransient<MainWindow>();
                 services.AddTransient<Views.ReportDialog>();
+                services.AddTransient<Views.AuditWindow>();
             })
             .Build();
 

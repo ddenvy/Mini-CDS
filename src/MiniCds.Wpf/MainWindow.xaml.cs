@@ -61,4 +61,11 @@ public partial class MainWindow : Window
     {
         Close();
     }
+
+    private void OnAuditTrailClick(object sender, RoutedEventArgs e)
+    {
+        var window = _serviceProvider.GetRequiredService<AuditWindow>();
+        window.Owner = this;
+        window.Show();
+    }
 }
