@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using MiniCds.Domain.ValueObjects;
+using MiniCds.Wpf.Infrastructure;
 using MiniCds.Wpf.ViewModels;
 
 namespace MiniCds.Wpf.Views;
@@ -20,6 +21,15 @@ public partial class LiveChartView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        Loaded += OnLoaded;
+    }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null)
+        {
+            await ((AsyncRelayCommand)_viewModel.LoadSamplesCommand).ExecuteAsync(null);
+        }
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

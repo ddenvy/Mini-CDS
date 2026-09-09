@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MiniCds.Domain.Abstractions;
 using MiniCds.Domain.Entities;
 using MiniCds.Domain.Enums;
+using MiniCds.Domain.ValueObjects;
 
 namespace MiniCds.Infrastructure.Persistence;
 
@@ -86,6 +87,45 @@ public sealed class DbSeeder(CdsDbContext db, IPasswordHasher passwordHasher)
 
             // Report the plaintext only when we generated it; configured passwords stay private.
             created.Add(new SeededUser(username, user.Id, demoPassword is null ? password : null));
+        }
+
+        // Seed a default method and a few demo samples so the UI is usable on first launch.
+        if (!await db.Methods.AnyAsync(ct))
+        {
+            var method = new Method
+            {
+                Name = "Standard Analysis",
+                Version = 1,
+                Parameters = new ProcessingParameters
+                {
+                    SampleRateHz = 10,
+                    MovingAverageWindow = 5,
+                    SavitzkyGolayWindow = 7,
+                    SavitzkyGolayOrder = 2,
+                    BaselineLambda = 1e5,
+                    BaselineP = 0.001,
+                    MinPeakHeight = 1.0,
+                    MinProminence = 0.5,
+                    MinWidthPoints = 3
+                },
+                CreatedAtUtc = DateTime.UtcNow,
+                CreatedByUserId = systemUserId
+            };
+            db.Methods.Add(method);
+            await db.SaveChangesAsync(ct);
+
+            for (int i = 1; i <= 3; i++)
+            {
+                db.Samples.Add(new Sample
+                {
+                    Name = $"Sample_{i:D3}",
+                    MethodId = method.Id,
+                    Status = SampleStatus.Queued,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    CreatedByUserId = systemUserId
+                });
+            }
+            await db.SaveChangesAsync(ct);
         }
 
         return new SeedResult(systemUserId, created);
