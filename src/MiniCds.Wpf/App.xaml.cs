@@ -31,6 +31,7 @@ public partial class App : System.Windows.Application
                 var connectionString = context.Configuration.GetConnectionString("CdsDb")
                     ?? throw new InvalidOperationException("ConnectionStrings:CdsDb is not configured.");
                 services.AddMiniCdsPersistence(connectionString);
+                services.AddTransient<LoginWindow>();
                 services.AddTransient<MainWindow>();
             })
             .Build();
@@ -99,6 +100,22 @@ public partial class App : System.Windows.Application
                     "Set Demo__Password to choose your own.",
                     "Database seeded", MessageBoxButton.OK, MessageBoxImage.Information);
             }
+        }
+
+        // Login flow: show LoginWindow as modal dialog.
+        using (var loginScope = _host.Services.CreateScope())
+        {
+            var loginWindow = loginScope.ServiceProvider.GetRequiredService<LoginWindow>();
+            var dialogResult = loginWindow.ShowDialog();
+
+            if (dialogResult != true)
+            {
+                Log.Information("Login cancelled or failed. Application shutting down.");
+                Shutdown();
+                return;
+            }
+
+            Log.Information("User {Username} logged in successfully.", loginWindow.AuthResult?.Username);
         }
 
         // One DI scope per window: DbContext lives as long as the window does.

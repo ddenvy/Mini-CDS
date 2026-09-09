@@ -1,10 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,6 +26,7 @@
     <ProjectReference Include="..\..\src\MiniCds.Infrastructure\MiniCds.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\MiniCds.Application\MiniCds.Application.csproj" />
     <ProjectReference Include="..\..\src\MiniCds.Domain\MiniCds.Domain.csproj" />
+    <ProjectReference Include="..\..\src\MiniCds.Wpf\MiniCds.Wpf.csproj" />
   </ItemGroup>
 
 </Project>

@@ -38,7 +38,7 @@ public class CompositionTests
         scope.ServiceProvider.GetRequiredService<ISignatureService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AuditService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<IUserStore>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<AuthService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<IAuthService>().Should().NotBeNull();
     }
 
     [Fact]

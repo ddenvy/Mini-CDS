@@ -38,7 +38,7 @@ Data-Oriented Design на hot paths (DSP), 21 CFR Part 11 — append-only ауд
 | 4 | Persistence: CdsDbContext, EF configurations, SQLite migration, Persistence tests | ✅ Закрыт (3/3 tests) |
 | 5 | Hash-chain (IHashChain), AuditTrail (IAuditTrail), AppendOnly interceptor | ✅ Закрыт (46/46 tests) |
 | 6 | AuditService, SignatureService (mock), PasswordHasher | ✅ Закрыт |
-| 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | 🟡 В работе: хост+DI+сидинг+логи ✅, AuthService ✅, LoginWindow ⬜ |
+| 7 | WPF host + DI (Generic Host, сидинг, LoginWindow) | ✅ Закрыт (94/94 tests) |
 | 8 | Sample/Method entities, AcquisitionService, LiveChart | ⚪ Запланирован |
 | 9 | ReportService + CSV export | ⚪ Запланирован |
 
@@ -532,6 +532,43 @@ system-аккаунта → разблокирует FailedLogin-аудит).
 
 **Итог:** 84/84, DI-граф валиден, AuthService готов к использованию в LoginWindow. Следующий шаг:
 LoginWindow (WPF, окно из scope, AuthResult → смена окна на главное).
+
+---
+
+### 2026-09-09 — Milestone 7, часть 4: LoginWindow (WPF UI + ViewModel + DI flow)
+
+**План:** реализовать LoginWindow (XAML + code-behind) с LoginViewModel, async-командой, DI-интеграцией.
+
+**Сделано:**
+- `LoginWindow.xaml` + `LoginWindow.xaml.cs` — модальное окно логина с полями Username/Password,
+  отображением ошибки, кнопкой Login, автофокусом на UsernameBox.
+- `LoginViewModel` — чистая логика с async-командой, INPC, fail-closed обработкой исключений,
+  свойство `LoginResult` для передачи AuthResult наружу.
+- `AsyncRelayCommand` — минимальная реализация ICommand для async-операций с `CanExecute` и защитой
+  от повторного запуска.
+- Конвертеры: `StringToVisibilityConverter` (скрытие ошибки), `InverseBoolConverter` (блокировка кнопки
+  при загрузке).
+- `IAuthService` — извлечён интерфейс из `AuthService` для тестируемости (NSubstitute не может мокать
+  sealed-классы).
+- DI-регистрация: `LoginWindow` как Transient, `IAuthService → AuthService` (Scoped).
+- `App.xaml.cs` — логин-флоу: `ShowDialog()` → при успехе открываем `MainWindow`, при отмене — `Shutdown()`.
+- Тесты: 10 `LoginViewModelTests` (начальное состояние, CanExecute-логика, success/failure/exception
+  сценарии, loading-блокировка, PropertyChanged).
+- **Полный прогон: 94/94** (84 из прошлого milestone + 10 LoginViewModelTests).
+
+**Проблемы / ловушки:**
+1. **NSubstitute не может мокать sealed-классы** — `AuthService` был `sealed class`, Castle DynamicProxy
+  не может создать прокси. Решение: извлечь `IAuthService` интерфейс, регистрировать в DI как
+  `IAuthService → AuthService`. Правило: все сервисы Application-слоя должны иметь интерфейсы для
+  тестируемости.
+2. **TFM несовместимость** — тестовый проект `net10.0` не может ссылаться на WPF-проект `net10.0-windows`.
+  Решение: изменить TFM тестового проекта на `net10.0-windows` + `<UseWPF>true</UseWPF>`.
+3. **PasswordBox не поддерживает binding** — WPF `PasswordBox.Password` не является DependencyProperty
+  (безопасность). Решение: code-behind `PasswordChanged` event → ручное обновление `ViewModel.Password`.
+4. **ICommand требует синхронный Execute** — `AsyncRelayCommand` реализовал только `ExecuteAsync`,
+  компилятор требовал `Execute(object?)`. Решение: явная реализация `Execute` → `ExecuteAsync`.
+
+**Итог:** 94/94, LoginWindow готов, DI-интеграция работает. Milestone 7 закрыт.
 
 ---
 

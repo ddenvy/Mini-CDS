@@ -21,11 +21,17 @@ public sealed record AuthResult(
         => new(false, error, 0, string.Empty, string.Empty, UserRole.Operator);
 }
 
+/// <summary>Authenticates a user and writes Login/FailedLogin to the audit trail.</summary>
+public interface IAuthService
+{
+    Task<AuthResult> LoginAsync(string username, string password, CancellationToken ct = default);
+}
+
 /// <summary>
 /// Authenticates a user and writes Login/FailedLogin to the audit trail as the system account.
 /// Fail-closed: if the audit entry cannot be written, access is denied.
 /// </summary>
-public sealed class AuthService(IUserStore userStore, IPasswordHasher passwordHasher, IAuditTrail auditTrail)
+public sealed class AuthService(IUserStore userStore, IPasswordHasher passwordHasher, IAuditTrail auditTrail) : IAuthService
 {
     private const string GenericError = "Invalid username or password.";
 

@@ -29,7 +29,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISignatureService, SignatureService>();
         services.AddScoped<AuditService>();
         services.AddScoped<IUserStore, EfUserStore>();
-        services.AddScoped<AuthService>();
+        services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<DbSeeder>();
 
         return services;
