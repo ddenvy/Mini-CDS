@@ -199,6 +199,7 @@ public sealed class LiveChartViewModel : INotifyPropertyChanged
     {
         System.Windows.Application.Current?.Dispatcher.Invoke(() =>
         {
+            DetectedPeaks.Clear();
             foreach (var peak in peaks)
             {
                 DetectedPeaks.Add(peak);

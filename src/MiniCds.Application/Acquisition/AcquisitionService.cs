@@ -23,6 +23,8 @@ public sealed class AcquisitionService : IAcquisitionService
     private IInstrumentSource? _instrument;
     private Sample? _currentSample;
     private long _actorUserId;
+    private int _frameCounter;
+    private const int PeakDetectionInterval = 10;
 
     public AcquisitionService(
         ISampleRepository sampleRepository,
@@ -78,6 +80,7 @@ public sealed class AcquisitionService : IAcquisitionService
         _instrument = instrument;
         _actorUserId = actorUserId;
         _frameBuffer.Clear();
+        _frameCounter = 0;
 
         _instrument.FrameReceived += OnFrameReceived;
 
@@ -182,6 +185,42 @@ public sealed class AcquisitionService : IAcquisitionService
     {
         _frameBuffer.Add(frame);
         FrameProcessed?.Invoke(this, frame);
+
+        _frameCounter++;
+        if (_frameCounter % PeakDetectionInterval == 0 && _currentSample is not null)
+        {
+            _ = DetectPeaksRealtimeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Runs the DSP pipeline on the current buffer and raises PeaksDetected
+    /// so the UI can show peaks in real time during acquisition.
+    /// </summary>
+    private async Task DetectPeaksRealtimeAsync()
+    {
+        try
+        {
+            if (_frameBuffer.Count < 5) return;
+
+            var method = _currentSample is not null
+                ? await _methodRepository.FindByIdAsync(_currentSample.MethodId)
+                : null;
+
+            if (method is null) return;
+
+            var times = _frameBuffer.Select(f => f.TimestampSeconds).ToArray();
+            var values = _frameBuffer.Select(f => f.Value).ToArray();
+
+            var processed = _signalProcessor.Process(times, values, method.Parameters);
+            var peaks = processed.Peaks.ToList();
+
+            PeaksDetected?.Invoke(this, peaks);
+        }
+        catch
+        {
+            // Real-time detection errors are non-fatal; final detection runs on Stop.
+        }
     }
 
     private static byte[] ConvertFramesToBytes(List<SignalFrame> frames)
